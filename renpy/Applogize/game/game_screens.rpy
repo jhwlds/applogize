@@ -41,7 +41,11 @@ screen character_select_screen():
                     ysize 360
                     background None
                     hover_background Solid("#ffffff20")
-                    action Return("male")
+                    action [
+                        Function(renpy.music.stop, fadeout=1.5),
+                        Hide("character_select_screen", transition=fade),
+                        Return("male")
+                    ]
 
                     add Transform(
                         "images/characters/Angry_apple-headed_character_in_hoodie-removebg-preview.png",
@@ -59,7 +63,11 @@ screen character_select_screen():
                     ysize 360
                     background None
                     hover_background Solid("#ffffff20")
-                    action Return("female")
+                    action [
+                        Function(renpy.music.stop, fadeout=1.5),
+                        Hide("character_select_screen", transition=fade),
+                        Return("female")
+                    ]
 
                     add Transform(
                         "images/characters/angry_face1.png",
