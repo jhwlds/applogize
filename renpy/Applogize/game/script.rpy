@@ -6,7 +6,7 @@
 
 default energy = 20
 default max_energy = 20
-default apology_gauge = 50
+default rage_gauge = 50
 default stage = 0
 default player_gender = None
 default found_clues = set()
@@ -39,6 +39,22 @@ image gf normal = "images/characters/idle_pose.png"
 image gf angry1 = "images/characters/angry_face1.png"
 image gf angry2 = "images/characters/angry_face2.png"
 
+image firegirl = "images/characters/firegirl.jpeg"
+image badending = Transform(
+    "images/characters/badending.jpeg",
+    xsize=config.screen_width,
+    ysize=config.screen_height,
+)
+
+screen bad_ending_title():
+    zorder 100
+    text "GAME OVER":
+        xalign 0.02
+        yalign 0.95
+        size 80
+        color "#ffffff"
+        outlines [(4, "#000000", 0, 0)]
+
 ## Helper Functions ############################################################
 
 init python:
@@ -54,17 +70,19 @@ init python:
             else:
                 return "#ff6666"
         else:
-            g = store.apology_gauge
-            if g >= 100:
-                return "#ffd700"
-            elif g >= 75:
+            g = store.rage_gauge
+            # In Stage 2, rage_gauge represents anger:
+            # 0 = calm, 100 = maximum anger.
+            if g <= 0:
+                return "#ffd700"   # calm / best state
+            elif g <= 25:
                 return "#88cc33"
-            elif g >= 50:
+            elif g <= 50:
                 return "#33cc33"
-            elif g >= 25:
+            elif g <= 75:
                 return "#ff6666"
             else:
-                return "#cc3333"
+                return "#cc3333"   # very angry
 
     def format_timer(seconds):
         m = seconds // 60
@@ -175,6 +193,78 @@ init python:
         def __call__(self):
             return renpy.store.Return("correct")
 
+    def run_tracker_start():
+        """Start tracker (camera) in background. On macOS uses .app bundle for GUI without Terminal."""
+        import subprocess
+        import os
+        import sys
+        base = renpy.config.basedir
+        tracker_dir = os.path.abspath(os.path.join(base, "..", "..", "backend", "tracker"))
+        tracker_py = os.path.join(tracker_dir, "tracker.py")
+        if not os.path.isfile(tracker_py):
+            gamedir = renpy.config.gamedir
+            tracker_dir = os.path.abspath(os.path.join(gamedir, "..", "..", "..", "backend", "tracker"))
+            tracker_py = os.path.join(tracker_dir, "tracker.py")
+        venv_python = os.path.join(tracker_dir, ".venv", "bin", "python3") if sys.platform != "win32" else os.path.join(tracker_dir, ".venv", "Scripts", "python.exe")
+        if not os.path.isfile(venv_python):
+            venv_python = "python3" if sys.platform != "win32" else "python"
+        try:
+            if sys.platform == "darwin":
+                # macOS: use .app bundle so it runs with full GUI permissions (no Terminal)
+                app_path = os.path.join(tracker_dir, "Tracker.app")
+                macos_dir = os.path.join(app_path, "Contents", "MacOS")
+                launcher_path = os.path.join(macos_dir, "launcher")
+                plist_path = os.path.join(app_path, "Contents", "Info.plist")
+                if not os.path.exists(macos_dir):
+                    os.makedirs(macos_dir)
+                launcher_script = '''#!/bin/bash
+TRACKER_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$TRACKER_DIR"
+exec "$TRACKER_DIR/.venv/bin/python3" tracker.py
+'''
+                with open(launcher_path, "w") as f:
+                    f.write(launcher_script)
+                os.chmod(launcher_path, 0o755)
+                plist_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>launcher</string>
+<key>CFBundleIdentifier</key><string>com.applogize.tracker</string>
+<key>CFBundleName</key><string>Tracker</string>
+<key>LSUIElement</key><true/>
+</dict></plist>
+'''
+                with open(plist_path, "w") as f:
+                    f.write(plist_content)
+                subprocess.Popen(["open", app_path])
+            elif sys.platform == "win32":
+                # Windows: use start to open new window
+                subprocess.Popen(["cmd", "/c", "start", "cmd", "/k", venv_python, tracker_py], cwd=tracker_dir)
+            else:
+                subprocess.Popen([venv_python, tracker_py], cwd=tracker_dir, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            renpy.notify("Camera started. Close the camera window when done.")
+        except Exception as e:
+            renpy.notify("Could not start camera: " + str(e)[:50])
+
+    def run_tracker_stop():
+        """Kill the tracker (camera) process."""
+        import subprocess
+        import sys
+        try:
+            if sys.platform == "darwin":
+                # pkill kills process by command line match (tracker.py)
+                subprocess.run(["pkill", "-f", "tracker.py"], capture_output=True, timeout=2)
+            elif sys.platform == "win32":
+                subprocess.run(["taskkill", "/F", "/FI", "WINDOWTITLE eq*tracker*"], capture_output=True, timeout=2)
+        except Exception:
+            pass
+
+    class RunTrackerAction(renpy.store.Action):
+        """Start tracker (camera) in background."""
+        def __call__(self):
+            run_tracker_start()
+            return None
+
 ################################################################################
 ## Game Flow
 ################################################################################
@@ -233,27 +323,7 @@ label stage1_phone_loop:
 
 label stage1_timeout:
     $ timer_running = False
-    $ quick_menu = True
-
-    scene bg_dark
-    show gf angry2 at truecenter
-    with vpunch
-
-    gf "Time's up. You don't even care, do you?"
-
-    $ energy -= 10
-    $ gf_anger_level += 1
-
-    if energy <= 0:
-        jump check_rescue
-
-    mc "(I need to hurry up...)"
-
-    hide gf
-    with dissolve
-    $ quick_menu = False
-    $ timer_seconds = 180
-    jump stage1_phone_loop
+    jump ending_gameover
 
 label stage1_guess:
     $ timer_running = False
@@ -315,7 +385,7 @@ label stage1_correct:
 
 label stage2:
     $ stage = 2
-    $ apology_gauge = 50
+    $ rage_gauge = 50
     $ quick_menu = False
 
     scene bg_videocall
@@ -327,7 +397,7 @@ label stage2:
     gf "..."
 
     mc "(Time for a video call apology. I need to mean it...)"
-    mc "(Get the apology gauge to 100 to make things right!)"
+    mc "(Her anger is rising... I need to bring it down!)"
 
     $ quick_menu = False
 
@@ -338,33 +408,33 @@ label stage2_loop:
     $ quick_menu = True
 
     if result == "great":
-        $ apology_gauge = min(100, apology_gauge + 25)
+        $ rage_gauge = max(0, rage_gauge - 25)
         scene bg_videocall
         show gf normal at truecenter
         with dissolve
         gf "...Keep going."
     elif result == "good":
-        $ apology_gauge = min(100, apology_gauge + 15)
+        $ rage_gauge = max(0, rage_gauge - 15)
         scene bg_videocall
         show gf normal at truecenter
         with dissolve
         gf "..."
     elif result == "bad":
-        $ apology_gauge = max(0, apology_gauge - 20)
+        $ rage_gauge = min(100, rage_gauge + 20)
         $ energy -= 5
         scene bg_videocall
         show gf angry2 at truecenter
         with vpunch
         gf "You call that an apology?!"
     else:
-        $ apology_gauge = max(0, apology_gauge - 5)
+        $ rage_gauge = min(100, rage_gauge + 5)
         gf "..."
 
     $ quick_menu = False
 
-    if apology_gauge >= 100:
+    if rage_gauge <= 0:
         jump stage2_success
-    elif apology_gauge <= 0 or energy <= 0:
+    elif rage_gauge >= 100 or energy <= 0:
         jump check_rescue
     else:
         jump stage2_loop
@@ -412,7 +482,7 @@ label check_rescue:
                     $ timer_seconds = 180
                     jump stage1_phone_loop
                 else:
-                    $ apology_gauge = 30
+                    $ rage_gauge = 30
                     jump stage2_loop
             "Give up...":
                 jump ending_gameover
@@ -426,6 +496,17 @@ label ending_gameover:
 
     scene bg_black
     with fade
+
+    show firegirl at truecenter
+    with dissolve
+
+    gf "You're the absolute worst. Don't you dare contact me again!"
+
+    scene badending
+    with fade
+    show screen bad_ending_title
+    pause
+    hide screen bad_ending_title
 
     call screen ending_gameover_screen
     return

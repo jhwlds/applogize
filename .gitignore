@@ -6,6 +6,7 @@ package-lock.json
 # MediaPipe model files
 tracker/models/*.task
 
+
 # Python
 __pycache__/
 *.py[cod]
