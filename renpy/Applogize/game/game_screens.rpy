@@ -660,9 +660,9 @@ screen grab_one_last_chance_screen():
         spacing 20
 
         text "Show your heart!" size 36 color "#ff6b9d" xalign 0.5 bold True
-        text "5 seconds..." size 24 color "#aaaaaa" xalign 0.5
+        text "10 seconds..." size 24 color "#aaaaaa" xalign 0.5
 
-    timer 5.0 action Return("done")
+    timer 10.0 action Return("done")
 
 
 ################################################################################
