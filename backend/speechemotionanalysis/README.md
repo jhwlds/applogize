@@ -1,62 +1,135 @@
 # Speech Emotion Analysis (Hume Prosody)
 
 ## 개요
-이 서비스는 `wav` 파일 1개를 받아 Hume prosody 분석을 수행하고, 전사 텍스트와 지정한 감정 지표 점수를 반환합니다.
 
-## 폴더 파일 구성 및 역할
-- `server.py`
-  - FastAPI 서버 메인 파일입니다.
-  - 엔드포인트:
-    - `GET /health`
-    - `POST /analyze` (multipart `file`)
-    - `GET /media/{file_id}` (Hume가 가져갈 임시 오디오 URL)
-  - 처리 흐름:
-    - wav 검증
-    - 업로드 파일 임시 저장
-    - Hume 배치 잡 생성
-    - 완료될 때까지 폴링
-    - 감정 점수 파싱
-    - 지정 감정 키만 반환
-    - 분석 후 임시 파일 삭제
+이 서비스는 **WAV 파일 1개**를 받아 Hume prosody API로 분석하고, **전사(STT)** 텍스트와 지정한 **감정 지표** 점수를 반환합니다.  
+Applogize Ren'Py 게임의 Stage 1 음성 인식/감정 분석에 사용됩니다.
 
-- `requirements.txt`
-  - Python 의존성 목록입니다.
-  - 아래 명령으로 설치합니다:
-  - `pip install -r requirements.txt`
+---
 
-- `.env.example`
-  - 팀원이 복사해서 쓰는 환경변수 템플릿입니다.
-  - `.env`로 복사 후 실제 값으로 채웁니다.
+## 사전 요구사항
 
-- `.env` (로컬 전용, git ignore)
-  - 실제 시크릿/실행 값입니다.
-  - 필수 키:
-    - `HUME_API_KEY`
-    - `PUBLIC_BASE_URL` (Hume가 접근 가능한 공개 URL, 예: ngrok URL)
+- **Python 3.9+**
+- **Hume API 키** — [Hume AI](https://www.hume.ai/)에서 발급
+- (선택) Ren'Py 8.5+ — 게임 실행 시
 
-- `run_server.ps1`
-  - Windows용 서버 실행 보조 스크립트입니다.
-  - 포트 충돌 프로세스를 정리한 뒤 uvicorn을 실행합니다.
-  - 기본 포트는 `19000`이며, 점유 중이면 `19001`로 폴백합니다.
+---
 
-- `uploads/` (런타임 폴더, git ignore)
-  - `/analyze` 처리 중 임시 업로드 파일이 저장됩니다.
-  - 분석 완료 후 파일은 삭제됩니다.
+## 1. 세팅 (처음 한 번만)
 
-## 현재 API 응답 형태
-`POST /analyze`
+### 1.1 폴더로 이동
+
+```bash
+# macOS / Linux
+cd /path/to/USU2026/applogize/backend/speechemotionanalysis
+
+# Windows (PowerShell)
+cd C:\path\to\USU2026\applogize\backend\speechemotionanalysis
+```
+
+### 1.2 패키지 설치
+
+```bash
+pip install -r requirements.txt
+# 또는
+python3 -m pip install -r requirements.txt
+```
+
+가상환경을 쓰는 경우:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate   # macOS/Linux
+# .venv\Scripts\activate   # Windows
+pip install -r requirements.txt
+```
+
+### 1.3 환경 변수 설정
+
+1. `.env.example`을 복사해 `.env` 생성:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. `.env`를 열어 **HUME_API_KEY**만 반드시 넣기:
+
+   ```env
+   HUME_API_KEY=여기에_발급받은_키_입력
+   ```
+
+   - `PUBLIC_BASE_URL`은 현재 **/analyze 동작에는 사용하지 않습니다.** (파일을 Hume에 직접 업로드하므로 ngrok 없이 동작)
+
+---
+
+## 2. 서버 실행
+
+기본 포트 **19000**으로 실행:
+
+```bash
+python3 -m uvicorn server:app --host 0.0.0.0 --port 19000
+```
+
+정상이면 다음처럼 뜹니다:
+
+```text
+INFO:     Uvicorn running on http://0.0.0.0:19000 (Press CTRL+C to quit)
+```
+
+- **중지:** 터미널에서 `Ctrl+C`
+
+---
+
+## 3. Ren'Py 게임에서 사용 (Applogize)
+
+1. **백엔드 서버가 19000 포트에서 떠 있어야 합니다.** (위 2번 실행 유지)
+2. 게임 실행:
+   - **macOS:** 터미널에서 **가상환경 비활성화** 후 실행하는 것을 권장 (venv 활성화 시 Ren'Py가 잘못된 Python을 참조할 수 있음)
+     ```bash
+     deactivate   # venv 쓰고 있었다면
+     cd /path/to/USU2026/applogize/renpy
+     ./renpy.sh Applogize
+     ```
+   - 또는 Ren'Py 런처에서 프로젝트 `Applogize` 선택 후 실행
+3. 게임 내 Stage 1에서 **Record (voice)** 로 녹음하면, 녹음 파일이 이 서버의 `/analyze`로 전송되고, 전사 결과가 텍스트로 표시됩니다.
+4. **STT 언어:** 서버는 Hume 전사를 **영어(`en`)만** 사용하도록 설정되어 있습니다.
+
+---
+
+## 4. 동작 확인 (curl)
+
+서버가 떠 있는 상태에서:
+
+```bash
+curl -X POST "http://127.0.0.1:19000/analyze" -F "file=@경로/파일.wav"
+```
+
+WAV는 16kHz 모노 16bit PCM을 권장합니다.  
+정상이면 JSON으로 `transcript`, `emotions` 등이 내려옵니다.
+
+---
+
+## 5. API 요약
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/health` | 서버 상태 확인 |
+| POST | `/analyze` | WAV 파일 1개 업로드 → 전사 + 감정 분석 결과 반환 |
+
+### POST /analyze 요청
+
+- **Content-Type:** `multipart/form-data`
+- **필드:** `file` — WAV 파일
+
+### POST /analyze 응답 예시
+
 ```json
 {
   "file_id": "string",
   "raw_hume_job_id": "string",
-  "transcript": "string",
+  "transcript": "전사된 문장",
   "transcript_segments": [
-    {
-      "text": "string",
-      "begin": 0.0,
-      "end": 0.0,
-      "confidence": 0.0
-    }
+    { "text": "string", "begin": 0.0, "end": 0.0, "confidence": 0.0 }
   ],
   "emotions": {
     "calmness": 0.0,
@@ -79,71 +152,30 @@
 }
 ```
 
-## 설정 방법
-1. 폴더 이동:
-```powershell
-cd c:\Users\minjo\GitHub\applogize\backend\speechemotionanalysis
-```
-2. 패키지 설치:
-```powershell
-pip install -r requirements.txt
-```
-3. 환경변수 파일 생성:
-```powershell
-copy .env.example .env
-```
-4. `.env` 수정:
-- `HUME_API_KEY=...`
-- `PUBLIC_BASE_URL=https://...` (ngrok/배포 도메인)
+---
 
-## ngrok 필요 여부
-- Hume가 로컬 서버 파일을 가져가려면 공개 URL이 필요합니다.
-- 로컬에서 실행할 때는 보통 `ngrok`(또는 유사 터널)이 필요합니다.
-- 이미 퍼블릭으로 배포된 서버를 쓰는 경우엔 `ngrok`이 없어도 됩니다.
+## 6. 폴더/파일 구성
 
-## ngrok 사용 방법 (로컬 실행 시)
-1. 서버 실행:
-```powershell
-powershell -ExecutionPolicy Bypass -File .\run_server.ps1 -Port 19000
-```
-2. 별도 터미널에서 ngrok 실행:
-```powershell
-ngrok http 19000
-```
-3. ngrok가 표시한 `https://...` 주소를 `.env`의 `PUBLIC_BASE_URL`로 설정
-4. 서버 재시작
+| 항목 | 역할 |
+|------|------|
+| `server.py` | FastAPI 앱, `/health`, `/analyze` 등 |
+| `requirements.txt` | Python 의존성 |
+| `.env.example` | 환경 변수 템플릿 (복사해 `.env` 생성) |
+| `.env` | 실제 키 (git 제외, 공유 금지) |
+| `run_server.ps1` | Windows용 서버 실행 보조 스크립트 (포트 정리 후 uvicorn) |
+| `uploads/` | 분석 시 임시 업로드 저장, 완료 후 삭제 (git 제외) |
 
-## 실행 방법
-방법 1:
-```powershell
-python -m uvicorn server:app --host 0.0.0.0 --port 19000 --env-file .env
-```
-방법 2 (보조 스크립트):
-```powershell
-powershell -ExecutionPolicy Bypass -File .\run_server.ps1 -Port 19000
-```
+---
 
-## 테스트 요청
+## 7. ngrok
 
-### m4a 파일을 wav로 변환하기
-`/analyze`는 wav만 받기 때문에 m4a는 먼저 변환해야 합니다.
+- **/analyze** 는 클라이언트가 WAV를 서버로 보내고, 서버가 Hume에 **파일을 직접 업로드**하므로 **ngrok 없이** 로컬(`http://localhost:19000`)만으로 동작합니다.
+- 다른 용도로 공개 URL이 필요할 때만 ngrok 등을 사용하면 됩니다.
 
-1. ffmpeg 설치 (Windows):
-```powershell
-winget install --id Gyan.FFmpeg -e
-```
+---
 
-2. m4a -> wav 변환 (권장 포맷: 16kHz mono 16-bit PCM):
-```powershell
-ffmpeg -i .\uploads\{input 파일이름}.m4a -ac 1 -ar 16000 -sample_fmt s16 .\uploads\{output 파일이름}.wav
-```
+## 8. 협업 시 참고
 
-### 변환된 wav로 분석 요청
-```powershell
-curl.exe -X POST "http://127.0.0.1:19000/analyze" -F "file=@C:\Users\minjo\GitHub\applogize\backend\speechemotionanalysis\uploads\2.wav"
-```
-
-## 협업 시 참고
-- `.env`, `uploads/`, `__pycache__/`는 git에서 제외됩니다.
-- `.env.example`만 공유하고 실제 API 키는 공유하지 않습니다.
-- 기본 포트는 19000으로 통일합니다.
+- `.env`, `uploads/`, `__pycache__/` 는 git에서 제외합니다.
+- `.env.example` 만 공유하고, **HUME_API_KEY** 등 실제 값은 공유하지 않습니다.
+- 기본 포트 **19000** 으로 통일해 두었습니다.
