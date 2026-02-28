@@ -1,0 +1,4 @@
+#!/bin/bash
+TRACKER_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$TRACKER_DIR"
+exec "$TRACKER_DIR/.venv/bin/python3" tracker.py
