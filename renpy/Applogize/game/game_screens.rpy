@@ -79,29 +79,13 @@ screen character_select_screen():
 
 
 ################################################################################
-## Intro Video (placeholder)
+## Intro Video
 ################################################################################
 
 screen intro_video_screen():
     modal True
 
-    add Solid("#000000")
-
-    # Placeholder intro sequence
-    vbox:
-        xalign 0.5
-        yalign 0.45
-        spacing 20
-
-        text "[[ INTRO VIDEO ]]" size 42 color "#ffffff22" xalign 0.5
-        text "Video placeholder" size 20 color "#ffffff15" xalign 0.5
-
-        null height 40
-
-        text "Your girlfriend is furious." size 30 color "#ffffff" xalign 0.5
-        null height 10
-        text "Figure out why," size 28 color "#cccccc" xalign 0.5
-        text "and make it right." size 28 color "#ff6b9d" xalign 0.5
+    add "intro_video"
 
     # Skip button
     textbutton "SKIP >>":
@@ -110,13 +94,139 @@ screen intro_video_screen():
         text_size 20
         text_color "#ffffff44"
         text_hover_color "#ffffff"
-        action Return()
+        action [Stop("movie_intro"), Return()]
 
-    timer 6.0 action Return()
+    # Auto-advance when video ends (adjust 120 if your video is longer)
+    timer 120 action Return()
 
 
 ################################################################################
-## Guess Reason Screen (Stage 1)
+## Voice Guess Screen (Stage 1) - Speak or type answer, send to server
+################################################################################
+
+screen voice_guess_screen():
+    modal True
+
+    add Solid("#0a0a14dd")
+
+    frame:
+        xalign 0.5
+        yalign 0.5
+        xsize 800
+        ypadding 40
+        xpadding 40
+        background Solid("#1a1a2e")
+
+        vbox:
+            spacing 20
+            xfill True
+
+            text "INVESTIGATION" size 34 color "#ffffff" xalign 0.5 bold True
+            text "Why is she upset? Say or type your answer." size 20 color "#aaaaaa" xalign 0.5
+
+            null height 5
+
+            # Evidence summary
+            if len(found_clues) > 0:
+                frame:
+                    xfill True
+                    background Solid("#12121e")
+                    xpadding 15
+                    ypadding 12
+
+                    vbox:
+                        spacing 3
+                        text "Evidence collected:" size 13 color "#666666"
+                        if "instagram_story" in found_clues:
+                            text "- IG: She's spending anniversary alone" size 12 color "#cccccc"
+                        if "instagram_reel" in found_clues:
+                            text "- IG: Liked 'Anniversary Gift Ideas' reel" size 12 color "#cccccc"
+                        if "gallery_date_photo" in found_clues:
+                            text "- Gallery: Old Tokyo date photos" size 12 color "#cccccc"
+                        if "gallery_ticket" in found_clues:
+                            text "- Gallery: Solo flight ticket screenshot" size 12 color "#cccccc"
+                        if "calendar_anniversary" in found_clues:
+                            text "- Calendar: 100 Day Anniversary (Feb 28)" size 12 color "#cccccc"
+                        if "calendar_flight" in found_clues:
+                            text "- Calendar: Tokyo flight scheduled" size 12 color "#cccccc"
+                        if "creditcard_airline" in found_clues:
+                            text "- Card: Airline ticket x1 purchased" size 12 color "#cccccc"
+                        if "memo_preference" in found_clues:
+                            text "- Notes: Promised anniversary trip together" size 12 color "#cccccc"
+
+            null height 10
+
+            # Answer input (voice result or typed)
+            frame:
+                xfill True
+                background Solid("#12121e")
+                xpadding 15
+                ypadding 12
+
+                vbox:
+                    spacing 8
+                    text "Your answer (sent to server for check):" size 13 color "#888888"
+                    input:
+                        value VariableInputValue("guess_text")
+                        xsize 750
+                        length 200
+                        size 22
+                        color "#ffffff"
+                        allow ""
+
+            # Voice status
+            hbox:
+                xalign 0.5
+                spacing 15
+
+                if voice_status == "recording":
+                    text "Recording... (speak now)" size 16 color "#ffaa00" xalign 0.5
+                elif voice_status == "ok":
+                    text "Voice captured." size 16 color "#44ff44" xalign 0.5
+                elif voice_status == "error":
+                    text "Voice failed. Type your answer or try again." size 14 color "#ff6666" xalign 0.5
+
+            null height 5
+
+            # Buttons
+            hbox:
+                xalign 0.5
+                spacing 20
+
+                textbutton "Record (voice)":
+                    xpadding 24
+                    ypadding 14
+                    background Solid("#2a3a5e")
+                    hover_background Solid("#3a4a7e")
+                    text_size 18
+                    text_color "#ffffff"
+                    action Function(start_voice_record)
+
+                textbutton "Submit to server":
+                    xpadding 24
+                    ypadding 14
+                    background Solid("#2a5e2a")
+                    hover_background Solid("#3a7e3a")
+                    text_size 18
+                    text_color "#ffffff"
+                    action SubmitGuessAction()
+
+            null height 10
+
+            textbutton "< Back to phone":
+                xalign 0.5
+                text_size 16
+                text_color "#888888"
+                text_hover_color "#ffffff"
+                action Return("back_to_phone")
+
+    # Refresh while recording so status updates
+    if voice_status == "recording":
+        timer 0.5 repeat True action NullAction()
+
+
+################################################################################
+## Guess Reason Screen (Stage 1) - legacy multiple choice
 ################################################################################
 
 screen guess_reason_screen():

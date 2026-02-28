@@ -1,5 +1,5 @@
 ################################################################################
-## Applogize - Smartphone UI
+## Applogize - Smartphone UI (Better EMR Phone _phone() frame)
 ################################################################################
 
 screen phone_main_screen():
@@ -51,36 +51,19 @@ screen phone_main_screen():
         if timer_seconds <= 0:
             timer 0.1 action Return("timeout")
 
-    # --- Phone Body ---
-    frame:
-        xalign 0.5
-        yalign 0.55
-        xsize 440
-        ysize 800
-        background Solid("#1c1c2c")
-        xpadding 0
-        ypadding 0
-
+    # --- Phone: Better EMR Phone _phone() base ---
+    use _phone(xpos=0.5, xanchor=0.5, ypos=0.5, yanchor=0.5):
         vbox:
             xfill True
+            yfill True
 
-            # Status bar
+            # Reserve space for status bar so content doesn't overlap
+            null height gui.phone_status_bar_height
+
+            # App content area
             frame:
                 xfill True
-                ysize 32
-                background Solid("#111118")
-                xpadding 14
-
-                hbox:
-                    yalign 0.5
-                    xfill True
-                    text "12:34" size 13 color "#999999"
-                    text "LTE     100%%" size 13 color "#999999" xalign 1.0
-
-            # Screen content
-            frame:
-                xfill True
-                ysize 724
+                yfill True
                 background Solid("#0a0a16")
                 xpadding 0
                 ypadding 0
