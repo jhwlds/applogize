@@ -6,7 +6,7 @@ from routes import api_router
 
 app = FastAPI(
     title="Applogize API",
-    description="분석을 위한 백엔드 API",
+    description="Backend API for analysis",
     version="1.0.0",
     debug=settings.DEBUG
 )
