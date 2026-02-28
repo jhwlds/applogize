@@ -244,6 +244,8 @@ screen voice_guess_screen():
 screen call_recording_overlay():
     modal True
 
+    default call_remaining = 15
+
     # Right-side panel (phone_call screen occupies the left ~40%)
     frame:
         xalign 0.97
@@ -257,7 +259,32 @@ screen call_recording_overlay():
             spacing 18
             xfill True
 
-            text "On the phone..." size 18 color "#ff6b9d" xalign 0.5 bold True
+            # Header + countdown
+            hbox:
+                xfill True
+                yalign 0.5
+
+                text "On the phone..." size 18 color "#ff6b9d" bold True
+
+                # Countdown badge - turns red under 5s
+                frame:
+                    xalign 1.0
+                    yalign 0.5
+                    xpadding 10
+                    ypadding 4
+                    background Solid(("#cc2222" if call_remaining <= 5 else "#2a2a3e"))
+                    text "[call_remaining]s" size 16 color "#ffffff" bold True
+
+            # Countdown progress bar
+            frame:
+                xfill True
+                ysize 6
+                background Solid("#2a2a3e")
+
+                frame:
+                    xsize int(420 * call_remaining / 15.0)
+                    ysize 6
+                    background Solid(("#ff4444" if call_remaining <= 5 else "#44aaff"))
 
             # Recording status indicator
             frame:
@@ -330,6 +357,13 @@ screen call_recording_overlay():
                 text_color "#666666"
                 text_hover_color "#aaaaaa"
                 action Return("back_to_phone")
+
+    # Tick down every second; auto-hang-up when time runs out
+    timer 1.0 repeat True action If(
+        call_remaining > 1,
+        SetScreenVariable("call_remaining", call_remaining - 1),
+        Return("correct")
+    )
 
     # Poll every 0.5s while recording so status text updates live
     if voice_status == "recording":
