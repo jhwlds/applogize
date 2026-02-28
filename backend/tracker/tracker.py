@@ -1296,7 +1296,7 @@ def run(args: argparse.Namespace) -> int:
                 sys.stdout.flush()
 
             # Display at 25% size (both apology "Talk to her" and grab_one_last_chance use this)
-            display_frame = cv2.resize(frame_bgr, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_LINEAR)
+            display_frame = cv2.resize(frame_bgr, None, fx=0.4, fy=0.4, interpolation=cv2.INTER_LINEAR)
             cv2.imshow(window_name, display_frame)
             key = cv2.waitKey(1) & 0xFF
             if key in (27, ord("q")):
