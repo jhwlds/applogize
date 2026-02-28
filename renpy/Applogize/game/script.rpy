@@ -23,6 +23,7 @@ default guess_text = ""
 default voice_status = ""  # "", "recording", "ok", "error"
 default voice_error_message = ""  # last exception message when voice_status == "error"
 default server_guess_result = None  # True/False/None after submit
+default heart_rescue_success = False  # True if heart detected in grab-one-last-chance flow
 
 ## Characters ##################################################################
 
@@ -285,6 +286,32 @@ exec "$TRACKER_DIR/.venv/bin/python3" tracker.py --output-file "$TRACKER_DIR/smi
         except Exception:
             pass
 
+    def stop_and_check_heart():
+        """Stop tracker, read heart_detected from file, set store.heart_rescue_success."""
+        import json
+        import os
+        import time
+        run_tracker_stop()
+        time.sleep(0.6)
+        base = renpy.config.basedir
+        tracker_dir = os.path.abspath(os.path.join(base, "..", "..", "backend", "tracker"))
+        if not os.path.isdir(tracker_dir):
+            gamedir = renpy.config.gamedir
+            tracker_dir = os.path.abspath(os.path.join(gamedir, "..", "..", "..", "backend", "tracker"))
+        session_path = os.path.join(tracker_dir, "smile_session.json")
+        store.heart_rescue_success = False
+        try:
+            if os.path.isfile(session_path):
+                with open(session_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                store.heart_rescue_success = bool(data.get("heart_detected", False))
+                try:
+                    os.remove(session_path)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     def stop_and_apply_smile_rage():
         """Stop tracker, read smile count from file, add rage_gauge += smile_count * 2."""
         import json
@@ -539,8 +566,16 @@ label check_rescue:
                     $ timer_seconds = 180
                     jump stage1_phone_loop
                 else:
-                    $ rage_gauge = 30
-                    jump stage2_loop
+                    $ run_tracker_start()
+                    call screen grab_one_last_chance_screen
+                    $ run_tracker_stop()
+                    $ stop_and_check_heart()
+                    if heart_rescue_success:
+                        $ rage_gauge = 30
+                        jump stage2_loop
+                    else:
+                        $ rage_gauge = 100
+                        jump ending_gameover
             "Give up...":
                 jump ending_gameover
     else:

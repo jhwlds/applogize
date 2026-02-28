@@ -477,6 +477,26 @@ screen apology_input_screen():
 
 
 ################################################################################
+## Grab One Last Chance - 5 Second Heart Screen
+################################################################################
+
+screen grab_one_last_chance_screen():
+    modal True
+
+    add Solid("#0f0f23")
+
+    vbox:
+        xalign 0.5
+        yalign 0.5
+        spacing 20
+
+        text "Show your heart!" size 36 color "#ff6b9d" xalign 0.5 bold True
+        text "5 seconds..." size 24 color "#aaaaaa" xalign 0.5
+
+    timer 5.0 action Return("done")
+
+
+################################################################################
 ## Ending - Game Over
 ################################################################################
 
