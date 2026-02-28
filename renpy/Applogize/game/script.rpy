@@ -58,17 +58,17 @@ image bg_focus = Transform(
     ysize=config.screen_height,
 )
 image bg_final = Transform(
-    "images/characters/final.jpeg",
+    "images/characters/final.png",
     xsize=config.screen_width,
     ysize=config.screen_height,
 )
 image bg_success = Transform(
-    "images/characters/success.jpeg",
+    "images/characters/success.png",
     xsize=config.screen_width,
     ysize=config.screen_height,
 )
 image bg_reunion = Transform(
-    "images/characters/reunion.jpeg",
+    "images/characters/reunion.png",
     xsize=config.screen_width,
     ysize=config.screen_height,
 )
