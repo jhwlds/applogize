@@ -15,6 +15,7 @@ default total_clues = 8
 default timer_seconds = 180
 default timer_running = False
 default rescue_used = False
+default in_rescue_mission = False
 
 ## Voice guess (Stage 1) – STT via speechemotionanalysis server /analyze; answer check via server
 default analyze_url = "http://localhost:19000/analyze"
@@ -46,6 +47,7 @@ image gf angry1 = "images/characters/angry_face1.png"
 image gf angry2 = "images/characters/angry_face2.png"
 
 image firegirl = "images/characters/firegirl.jpeg"
+image semifire = "images/characters/semifire.jpeg"
 image badending = Transform(
     "images/characters/badending.jpeg",
     xsize=config.screen_width,
@@ -263,7 +265,9 @@ init python:
             gamedir = renpy.config.gamedir
             tracker_dir = os.path.abspath(os.path.join(gamedir, "..", "..", "..", "backend", "tracker"))
             tracker_py = os.path.join(tracker_dir, "tracker.py")
-        venv_python = os.path.join(tracker_dir, ".venv", "bin", "python3") if sys.platform != "win32" else os.path.join(tracker_dir, ".venv", "Scripts", "python.exe")
+        venv_python = os.path.join(tracker_dir, "venv", "bin", "python3") if sys.platform != "win32" else os.path.join(tracker_dir, "venv", "Scripts", "python.exe")
+        if not os.path.isfile(venv_python):
+            venv_python = os.path.join(tracker_dir, ".venv", "bin", "python3") if sys.platform != "win32" else os.path.join(tracker_dir, ".venv", "Scripts", "python.exe")
         if not os.path.isfile(venv_python):
             venv_python = "python3" if sys.platform != "win32" else "python"
         try:
@@ -435,6 +439,11 @@ label stage1_idle_warning:
     $ rage_gauge = min(100, rage_gauge + 5)
     $ quick_menu = True
 
+    if rage_gauge >= 100:
+        if in_rescue_mission:
+            jump ending_gameover
+        jump check_rescue
+
     scene bg_dark
     show gf angry1 at truecenter
     with vpunch
@@ -503,6 +512,11 @@ label stage1_wrong:
     $ rage_gauge = min(100, rage_gauge + 10)
     $ quick_menu = True
 
+    if rage_gauge >= 100:
+        if in_rescue_mission:
+            jump ending_gameover
+        jump check_rescue
+
     scene bg_dark
     show gf angry1 at truecenter
     with vpunch
@@ -522,6 +536,16 @@ label stage1_wrong:
 
 label stage1_correct:
     $ quick_menu = True
+
+    if in_rescue_mission:
+        scene bg_black
+        with dissolve
+        show semifire at truecenter
+        with dissolve
+        gf "This is going to be your last chance. Choose your next word carefully."
+        $ rescue_used = True
+        $ in_rescue_mission = False
+        $ rage_gauge = 70
 
     scene bg_dark
     show gf angry1 at truecenter
@@ -625,37 +649,51 @@ label stage2_success:
 label check_rescue:
     $ quick_menu = True
 
-    if not rescue_used:
-        $ rescue_used = True
-
-        scene bg_dark
-        with dissolve
-
-        menu:
-            "You've pushed things too far... But it's not over yet."
-            "Grab one last chance":
-                mc "(One more shot. I can't mess this up!)"
-                $ quick_menu = False
-                if stage == 1:
-                    jump stage1_phone_loop
-                else:
-                    $ run_tracker_start()
-                    call screen grab_one_last_chance_screen
-                    $ run_tracker_stop()
-                    $ stop_and_check_heart()
-                    if heart_rescue_success:
-                        $ rage_gauge = 30
-                        scene bg_videocall
-                        show gf angry1 at truecenter
-                        with dissolve
-                        jump stage2_loop
-                    else:
-                        $ rage_gauge = 100
-                        jump ending_gameover
-            "Give up...":
-                jump ending_gameover
-    else:
+    if rescue_used:
         jump ending_gameover
+
+    scene bg_black
+    with dissolve
+    show firegirl at truecenter
+    with dissolve
+
+    gf "Are you kidding me?"
+
+    scene bg_dark
+    with dissolve
+
+    menu:
+        "One more chance..."
+        "Grab one last chance":
+            mc "(One more shot. I can't mess this up!)"
+            $ quick_menu = False
+            $ in_rescue_mission = True
+            if stage == 1:
+                jump stage1_phone_loop
+            else:
+                $ run_tracker_start()
+                call screen grab_one_last_chance_screen
+                $ run_tracker_stop()
+                $ stop_and_check_heart()
+                if heart_rescue_success:
+                    scene bg_black
+                    with dissolve
+                    show semifire at truecenter
+                    with dissolve
+                    gf "This is going to be your last chance. Choose your next word carefully."
+                    $ rescue_used = True
+                    $ in_rescue_mission = False
+                    $ rage_gauge = 70
+                    scene bg_videocall
+                    with dissolve
+                    show gf angry1 at truecenter
+                    with dissolve
+                    jump stage2_loop
+                else:
+                    $ in_rescue_mission = False
+                    jump ending_gameover
+        "Give up...":
+            jump ending_gameover
 
 ## Endings #####################################################################
 
