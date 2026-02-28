@@ -38,8 +38,8 @@ default stage2_face_data = {}   # tracker session data for Stage 2
 
 ## Characters ##################################################################
 
-define gf = Character("Girlfriend", color="#ff6b9d", what_color="#ffffff")
-define mc = Character("Me", color="#4a90d9", what_color="#ffffff")
+define gf = Character("Girlfriend", color="#ff6b9d", what_color="#000000")
+define mc = Character("Me", color="#4a90d9", what_color="#000000")
 
 ## Placeholder Images ##########################################################
 
@@ -47,6 +47,36 @@ image bg_black = Solid("#000000")
 image bg_dark = Solid("#0a0a14")
 image bg_room = Solid("#1a1a2e")
 image bg_videocall = Solid("#0f0f23")
+image bg_girlroom = Transform(
+    "images/characters/girlroom.jpeg",
+    xsize=config.screen_width,
+    ysize=config.screen_height,
+)
+image bg_focus = Transform(
+    "images/characters/focus.jpeg",
+    xsize=config.screen_width,
+    ysize=config.screen_height,
+)
+image bg_final = Transform(
+    "images/characters/final.jpeg",
+    xsize=config.screen_width,
+    ysize=config.screen_height,
+)
+image bg_success = Transform(
+    "images/characters/success.jpeg",
+    xsize=config.screen_width,
+    ysize=config.screen_height,
+)
+image bg_reunion = Transform(
+    "images/characters/reunion.jpeg",
+    xsize=config.screen_width,
+    ysize=config.screen_height,
+)
+
+transform gf_knee_at_textbox:
+    zoom 1.45
+    anchor (0.5, 1.0)
+    pos (0.5, 1.05)
 
 image gf normal = "images/characters/idle_pose.png"
 image gf angry1 = "images/characters/angry_face1.png"
@@ -630,8 +660,8 @@ label stage1_idle_warning:
             jump ending_gameover
         jump check_rescue
 
-    scene bg_dark
-    show gf angry1 at truecenter
+    scene bg_focus
+    show gf angry1 at gf_knee_at_textbox
     with vpunch
 
     gf "Are you spacing out right now?"
@@ -709,8 +739,8 @@ label stage1_wrong:
             jump ending_gameover
         jump check_rescue
 
-    scene bg_dark
-    show gf angry1 at truecenter
+    scene bg_girlroom
+    show gf angry1 at gf_knee_at_textbox
     with vpunch
 
     if gf_reply:
@@ -733,17 +763,17 @@ label stage1_correct:
     $ quick_menu = True
 
     if in_rescue_mission:
-        scene bg_black
+        scene bg_reunion
         with dissolve
-        show semifire at truecenter
+        show semifire at gf_knee_at_textbox
         with dissolve
         gf "This is going to be your last chance. Choose your next word carefully."
         $ rescue_used = True
         $ in_rescue_mission = False
         $ rage_gauge = 70
 
-    scene bg_dark
-    show gf angry1 at truecenter
+    scene bg_girlroom
+    show gf angry1 at gf_knee_at_textbox
     with dissolve
 
     gf "You know exactly what you did wrong, and that’s how you apologize?"
@@ -830,8 +860,8 @@ label stage2_loop:
 label stage2_success:
     $ quick_menu = True
 
-    scene bg_videocall
-    show goldengirl at truecenter
+    scene bg_success
+    show goldengirl at gf_knee_at_textbox
     with dissolve
 
     gf "...Okay."
@@ -854,9 +884,9 @@ label check_rescue:
     if rescue_used:
         jump ending_gameover
 
-    scene bg_black
+    scene bg_final
     with dissolve
-    show firegirl at truecenter
+    show firegirl at gf_knee_at_textbox
     with dissolve
 
     gf "Are you kidding me?"
@@ -878,9 +908,9 @@ label check_rescue:
                 $ run_tracker_stop()
                 $ stop_and_check_heart()
                 if heart_rescue_success:
-                    scene bg_black
+                    scene bg_reunion
                     with dissolve
-                    show semifire at truecenter
+                    show semifire at gf_knee_at_textbox
                     with dissolve
                     gf "This is going to be your last chance. Choose your next word carefully."
                     $ rescue_used = True
@@ -900,10 +930,10 @@ label check_rescue:
 label ending_gameover:
     $ quick_menu = False
 
-    scene bg_black
+    scene bg_final
     with fade
 
-    show firegirl at truecenter
+    show firegirl at gf_knee_at_textbox
     with dissolve
 
     gf "You're the absolute worst. Don't you dare contact me again!"

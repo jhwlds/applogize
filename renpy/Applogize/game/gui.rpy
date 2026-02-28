@@ -50,7 +50,7 @@ define gui.muted_color = '#333333'
 define gui.hover_muted_color = '#555555'
 
 ## The colors used for dialogue and menu choice text.
-define gui.text_color = '#cccccc'
+define gui.text_color = '#000000'
 define gui.interface_text_color = '#cccccc'
 
 
