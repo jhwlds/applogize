@@ -213,12 +213,24 @@ screen voice_guess_screen():
 
             null height 10
 
-            textbutton "< Back to phone":
+            hbox:
                 xalign 0.5
-                text_size 16
-                text_color "#888888"
-                text_hover_color "#ffffff"
-                action Return("back_to_phone")
+                spacing 20
+
+                textbutton "< Back to phone":
+                    text_size 16
+                    text_color "#888888"
+                    text_hover_color "#ffffff"
+                    action Return("back_to_phone")
+
+                textbutton ">> Go to Video Call":
+                    xpadding 20
+                    ypadding 10
+                    background Solid("#2a3a5e")
+                    hover_background Solid("#3a4a7e")
+                    text_size 16
+                    text_color "#ffffff"
+                    action Jump("stage2")
 
     # Refresh while recording so status updates
     if voice_status == "recording":
@@ -328,12 +340,24 @@ screen guess_reason_screen():
 
             null height 5
 
-            textbutton "< Back to phone":
+            hbox:
                 xalign 0.5
-                text_size 16
-                text_color "#888888"
-                text_hover_color "#ffffff"
-                action Return("back_to_phone")
+                spacing 20
+
+                textbutton "< Back to phone":
+                    text_size 16
+                    text_color "#888888"
+                    text_hover_color "#ffffff"
+                    action Return("back_to_phone")
+
+                textbutton ">> Go to Video Call":
+                    xpadding 20
+                    ypadding 10
+                    background Solid("#2a3a5e")
+                    hover_background Solid("#3a4a7e")
+                    text_size 16
+                    text_color "#ffffff"
+                    action Jump("stage2")
 
 
 ################################################################################
