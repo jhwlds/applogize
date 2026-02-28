@@ -36,8 +36,8 @@ init -100 python in phone.discussion:
 
         set_current_screen("phone_discussion")
         show_layer_at("phone_discussion")
-        renpy.show_screen("phone_discussion")
-        renpy.with_statement(config.enter_transition)
+        renpy.exports.show_screen("phone_discussion")
+        renpy.exports.with_statement(config.enter_transition)
 
         store._window_auto = True
     
@@ -56,7 +56,7 @@ init -100 python in phone.discussion:
         _group_chat = None
 
         show_layer_at([], reset=True)
-        renpy.hide_screen("phone_discussion")
+        renpy.exports.hide_screen("phone_discussion")
         renpy.with_statement(config.exit_transition)
         
         set_current_screen(None)
