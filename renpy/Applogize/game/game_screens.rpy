@@ -752,6 +752,61 @@ screen ending_gameover_screen():
 
 
 ################################################################################
+## Ending - Credits (scroll up from bottom)
+################################################################################
+
+default credits_scroll_duration = 10
+
+transform ending_credits_scroll(duration=10.0):
+    xalign 0.5
+    yanchor 0.0
+    ypos 1.0
+    linear duration ypos -1.5
+
+screen ending_credits():
+    modal True
+    add Solid("#000000")
+
+    fixed:
+        xsize 1.0
+        ysize 1.0
+        at ending_credits_scroll(credits_scroll_duration)
+        vbox:
+            xalign 0.5
+            spacing 28
+            null height 200
+
+            text "APPLOGIZE" size 52 color "#ffd700" xalign 0.5 bold True
+            null height 20
+            text "Thank you for playing!" size 26 color "#ffffff" xalign 0.5
+            null height 60
+
+            text "Staff" size 32 color "#ffd700" xalign 0.5 bold True
+            null height 12
+            text "Game Design" size 22 color "#ffd700" xalign 0.5
+            text "Applogize Team" size 20 color "#aaaaaa" xalign 0.5
+            null height 24
+            text "Development" size 22 color "#ffd700" xalign 0.5
+            text "Applogize Team" size 20 color "#aaaaaa" xalign 0.5
+            null height 24
+            text "Art & Character" size 22 color "#ffd700" xalign 0.5
+            text "Applogize Team" size 20 color "#aaaaaa" xalign 0.5
+            null height 60
+
+            text "Special Thanks" size 28 color "#ffd700" xalign 0.5 bold True
+            null height 12
+            text "Utah State University" size 20 color "#aaaaaa" xalign 0.5
+            null height 80
+
+    timer credits_scroll_duration action Return()
+    textbutton "Skip" action Return():
+        xalign 0.5
+        yalign 0.98
+        text_size 22
+        text_color "#666666"
+
+
+################################################################################
 ## Ending - Clear
 ################################################################################
 

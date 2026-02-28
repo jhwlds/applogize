@@ -979,11 +979,25 @@ label ending_clear:
 
     scene bg_black
     with fade
-    scene happyending
+    # Happy ending video (last 0.5s fade-out); then credits
+    if renpy.loadable("video/happy_ending_fade.webm"):
+        $ renpy.movie_cutscene("video/happy_ending_fade.webm", stop_music=True)
+    elif renpy.loadable("video/happy_ending.webm"):
+        $ renpy.movie_cutscene("video/happy_ending.webm", stop_music=True)
+    elif renpy.loadable("video/happy_ending.mkv"):
+        $ renpy.movie_cutscene("video/happy_ending.mkv", stop_music=True)
+    else:
+        scene happyending
+        with fade
+    # 영상 끝 → 페이드아웃 후 여기서부터 크레딧
+    scene bg_black
     with fade
     show screen clear_title
     pause
     hide screen clear_title
 
+    play music "images/characters/appleSong.mp3" loop fadein 1.0
+    call screen ending_credits
+    stop music fadeout 1.5
     call screen ending_clear_screen
     return
