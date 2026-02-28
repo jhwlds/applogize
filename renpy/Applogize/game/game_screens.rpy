@@ -165,7 +165,7 @@ screen voice_guess_screen():
 
                 vbox:
                     spacing 8
-                    text "Your answer (voice or type):" size 13 color "#888888"
+                    text "Your answer (sent to server for check):" size 13 color "#888888"
                     input:
                         value VariableInputValue("guess_text")
                         xsize 750
@@ -184,12 +184,7 @@ screen voice_guess_screen():
                 elif voice_status == "ok":
                     text "Voice captured." size 16 color "#44ff44" xalign 0.5
                 elif voice_status == "error":
-                    vbox:
-                        xalign 0.5
-                        spacing 4
-                        text "Voice failed. Type your answer or try again." size 14 color "#ff6666" xalign 0.5
-                        if voice_error_message:
-                            text "[voice_error_message]" size 12 color "#ffaa66" xalign 0.5 text_align 0.5
+                    text "Voice failed. Type your answer or try again." size 14 color "#ff6666" xalign 0.5
 
             null height 5
 
@@ -207,14 +202,14 @@ screen voice_guess_screen():
                     text_color "#ffffff"
                     action Function(start_voice_record)
 
-                textbutton "Continue":
+                textbutton "Submit to server":
                     xpadding 24
                     ypadding 14
                     background Solid("#2a5e2a")
                     hover_background Solid("#3a7e3a")
                     text_size 18
                     text_color "#ffffff"
-                    action ContinueGuessAction()
+                    action SubmitGuessAction()
 
             null height 10
 
@@ -424,28 +419,6 @@ screen apology_input_screen():
                     ysize 18
                     background Solid(get_apple_color())
 
-    # Energy display
-    frame:
-        xalign 0.5
-        ypos 570
-        xpadding 16
-        ypadding 8
-        background Frame(Solid("#1a1a2eaa"), 4, 4)
-
-        hbox:
-            spacing 8
-            text "HP" size 16 color "#ff6b9d"
-            frame:
-                yalign 0.5
-                xsize 100
-                ysize 12
-                background Solid("#2a2a3e")
-                frame:
-                    xsize max(1, int(100.0 * energy / max_energy))
-                    ysize 12
-                    background Solid("#ff6b9d")
-            text "[energy]/[max_energy]" size 14 color "#aaaaaa"
-
     # Talk to her + Done buttons
     vbox:
         xalign 0.5
@@ -488,7 +461,7 @@ screen apology_input_screen():
                 text_size 20
                 text_color "#ffffff"
                 text_xalign 0.5
-                action Function(run_tracker_stop)
+                action [Function(stop_and_apply_smile_rage), Return("end_response")]
 
 
 ################################################################################
