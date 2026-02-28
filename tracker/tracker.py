@@ -178,6 +178,55 @@ SAD_GEOM_WEIGHT_PRECALIB = 0.7
 DIALOG_HOLD_MS = 350.0
 DIALOG_MIN_SHOW_MS = 900.0
 
+# Two-hand heart gesture (heuristic; normalized by hand scale).
+# Definition (per project spec):
+# - two thumbs touch each other
+# - each thumb stays far from its own 4 fingertips
+# - within each hand, the 4 fingertips are clustered together
+# - across hands, the two 4-fingertip clusters touch/overlap
+HEART_THUMB_TOUCH_T = 0.24
+HEART_THUMB_FAR_T = 0.68
+HEART_THUMB_FAR_MAX = 1.20
+HEART_FOUR_CLUSTER_MAX_SPREAD_T = 0.55
+HEART_FOUR_GROUP_TOUCH_T = 0.70
+HEART_FOUR_CROSS_TIP_TOUCH_T = 0.55
+HEART_ON = 0.55
+HEART_OFF = 0.35
+
+
+@dataclass(frozen=True)
+class HeartParams:
+    thumb_touch_t: float = HEART_THUMB_TOUCH_T
+    thumb_far_t: float = HEART_THUMB_FAR_T
+    thumb_far_max: float = HEART_THUMB_FAR_MAX
+    four_cluster_max_spread_t: float = HEART_FOUR_CLUSTER_MAX_SPREAD_T
+    four_group_touch_t: float = HEART_FOUR_GROUP_TOUCH_T
+    four_cross_tip_touch_t: float = HEART_FOUR_CROSS_TIP_TOUCH_T
+    on_t: float = HEART_ON
+    off_t: float = HEART_OFF
+
+
+def heart_params_from_sensitivity(sensitivity: float) -> HeartParams:
+    """
+    sensitivity > 1.0 => easier heart detection
+    sensitivity < 1.0 => stricter heart detection
+    """
+    s = float(sensitivity)
+    if not math.isfinite(s):
+        s = 1.0
+    s = max(0.5, min(2.5, s))
+    inv = 1.0 / max(1e-6, s)
+    return HeartParams(
+        thumb_touch_t=float(HEART_THUMB_TOUCH_T) * s,
+        thumb_far_t=float(HEART_THUMB_FAR_T) * inv,
+        thumb_far_max=float(HEART_THUMB_FAR_MAX),
+        four_cluster_max_spread_t=float(HEART_FOUR_CLUSTER_MAX_SPREAD_T) * s,
+        four_group_touch_t=float(HEART_FOUR_GROUP_TOUCH_T) * s,
+        four_cross_tip_touch_t=float(HEART_FOUR_CROSS_TIP_TOUCH_T) * s,
+        on_t=float(HEART_ON) * inv,
+        off_t=float(HEART_OFF) * inv,
+    )
+
 
 def clamp01(x: float) -> float:
     return max(0.0, min(1.0, float(x)))
@@ -402,6 +451,173 @@ def compute_hand_gestures(hand_landmarks: Sequence[Any]) -> Dict[str, bool]:
     return {"openPalm": bool(open_palm), "thumbsUp": bool(thumbs_up)}
 
 
+def _hand_scale(hand_landmarks: Sequence[Any]) -> float:
+    wrist = safe_point(hand_landmarks, 0)
+    mid_mcp = safe_point(hand_landmarks, 9)
+    s = dist2d(wrist, mid_mcp) if (wrist is not None and mid_mcp is not None) else 0.0
+    return max(1e-6, float(s) if math.isfinite(float(s)) else 1e-6)
+
+
+def _xy(p: Any) -> Optional[Tuple[float, float]]:
+    if p is None:
+        return None
+    if isinstance(p, dict):
+        x = p.get("x", None)
+        y = p.get("y", None)
+    else:
+        x = getattr(p, "x", None)
+        y = getattr(p, "y", None)
+    if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
+        return None
+    fx, fy = float(x), float(y)
+    if not (math.isfinite(fx) and math.isfinite(fy)):
+        return None
+    return fx, fy
+
+
+def _dist2d_any(a: Any, b: Any) -> float:
+    aa = _xy(a)
+    bb = _xy(b)
+    if aa is None or bb is None:
+        return 0.0
+    ax, ay = aa
+    bx, by = bb
+    return hypot2(ax - bx, ay - by)
+
+
+def _center_xy(hand_landmarks: Sequence[Any], tip_indices: Sequence[int]) -> Optional[Dict[str, float]]:
+    sx = 0.0
+    sy = 0.0
+    n = 0
+    for idx in tip_indices:
+        p = safe_point(hand_landmarks, int(idx))
+        if p is None:
+            continue
+        sx += float(p.x)
+        sy += float(p.y)
+        n += 1
+    if n == 0:
+        return None
+    return {"x": sx / float(n), "y": sy / float(n)}
+
+
+def _max_pairwise_spread(hand_landmarks: Sequence[Any], tip_indices: Sequence[int]) -> float:
+    pts: List[Any] = []
+    for idx in tip_indices:
+        p = safe_point(hand_landmarks, int(idx))
+        if p is not None:
+            pts.append(p)
+    if len(pts) < 2:
+        return 0.0
+    m = 0.0
+    for i in range(len(pts)):
+        for j in range(i + 1, len(pts)):
+            m = max(m, _dist2d_any(pts[i], pts[j]))
+    return float(m)
+
+
+def compute_two_hand_heart_score(
+    hands: Sequence[Sequence[Any]],
+    params: Optional[HeartParams] = None,
+    require_both_touch: bool = True,
+) -> float:
+    """
+    Heuristic for a two-hand heart (thumbs touch; other 4 fingertips clustered and touching across hands).
+    Returns a confidence score in [0, 1].
+    """
+    if hands is None or len(hands) < 2:
+        return 0.0
+    p = params or HeartParams()
+
+    best = 0.0
+    n = min(4, len(hands))  # keep it bounded
+    for i in range(n):
+        for j in range(i + 1, n):
+            h1 = hands[i]
+            h2 = hands[j]
+
+            # Required points
+            t1 = safe_point(h1, 4)
+            t2 = safe_point(h2, 4)
+            w1 = safe_point(h1, 0)
+            w2 = safe_point(h2, 0)
+            if t1 is None or t2 is None or w1 is None or w2 is None:
+                continue
+
+            # Normalize by average hand scale.
+            scale = (_hand_scale(h1) + _hand_scale(h2)) * 0.5
+            d_thumb = _dist2d_any(t1, t2) / scale
+
+            # Also ensure hands are not wildly separated.
+            d_wrist = _dist2d_any(w1, w2) / scale
+            if d_wrist > 2.7:
+                continue
+
+            # 4-fingertip clusters (exclude thumb): index, middle, ring, pinky tips.
+            four = [8, 12, 16, 20]
+            c1 = _center_xy(h1, four)
+            c2 = _center_xy(h2, four)
+            if c1 is None or c2 is None:
+                continue
+
+            # Thumb should be far from own 4-fingertip cluster.
+            d_thumb_far_1 = _dist2d_any(t1, c1) / scale
+            d_thumb_far_2 = _dist2d_any(t2, c2) / scale
+
+            # 4 fingertips should be clustered (within each hand).
+            spread_1 = _max_pairwise_spread(h1, four) / scale
+            spread_2 = _max_pairwise_spread(h2, four) / scale
+
+            # Across hands, 4-fingertip clusters should touch/overlap.
+            d_four_centers = _dist2d_any(c1, c2) / scale
+            min_cross_tip = float("inf")
+            for a_idx in four:
+                pa = safe_point(h1, int(a_idx))
+                if pa is None:
+                    continue
+                for b_idx in four:
+                    pb = safe_point(h2, int(b_idx))
+                    if pb is None:
+                        continue
+                    min_cross_tip = min(min_cross_tip, _dist2d_any(pa, pb) / scale)
+            if not math.isfinite(min_cross_tip):
+                continue
+
+            # Hard requirements from spec.
+            if d_thumb > p.thumb_touch_t:
+                continue
+            if d_thumb_far_1 < p.thumb_far_t or d_thumb_far_2 < p.thumb_far_t:
+                continue
+            if spread_1 > p.four_cluster_max_spread_t or spread_2 > p.four_cluster_max_spread_t:
+                continue
+            if require_both_touch:
+                if d_four_centers > p.four_group_touch_t:
+                    continue
+                if min_cross_tip > p.four_cross_tip_touch_t:
+                    continue
+            else:
+                if d_four_centers > p.four_group_touch_t and min_cross_tip > p.four_cross_tip_touch_t:
+                    continue
+
+            # Score components
+            s_thumb_touch = clamp01(1.0 - float(d_thumb) / float(p.thumb_touch_t))
+            s_thumb_far = clamp01(
+                min(
+                    (float(d_thumb_far_1) - float(p.thumb_far_t)) / max(1e-6, (float(p.thumb_far_max) - float(p.thumb_far_t))),
+                    (float(d_thumb_far_2) - float(p.thumb_far_t)) / max(1e-6, (float(p.thumb_far_max) - float(p.thumb_far_t))),
+                )
+            )
+            s_cluster = clamp01(1.0 - max(float(spread_1), float(spread_2)) / float(p.four_cluster_max_spread_t))
+            s_touch_centers = clamp01(1.0 - float(d_four_centers) / float(p.four_group_touch_t))
+            s_touch_tips = clamp01(1.0 - float(min_cross_tip) / float(p.four_cross_tip_touch_t))
+            s_touch = min(s_touch_centers, s_touch_tips) if require_both_touch else max(s_touch_centers, s_touch_tips)
+
+            score = float(min(s_thumb_touch, s_thumb_far, s_cluster, s_touch))
+            best = max(best, score)
+
+    return clamp01(best)
+
+
 def connection_indices(connections: Iterable[Tuple[int, int]]) -> Set[int]:
     s: Set[int] = set()
     for a, b in connections or []:
@@ -534,6 +750,13 @@ def update_looking_away_bool(prev: bool, look_away_score: float) -> bool:
     return look_away_score > LOOK_ON
 
 
+def update_heart_bool(prev: bool, heart_score: float, params: Optional[HeartParams] = None) -> bool:
+    p = params or HeartParams()
+    if prev:
+        return float(heart_score) > float(p.off_t)
+    return float(heart_score) > float(p.on_t)
+
+
 def pick_dialog_line(face_present: bool, looking_away: bool, smile: float) -> str:
     if not face_present:
         return "I can't see your face…"
@@ -545,9 +768,17 @@ def pick_dialog_line(face_present: bool, looking_away: bool, smile: float) -> st
 
 
 def pick_dialog_line_with_hand(
-    face_present: bool, looking_away: bool, smile: float, hand_present: bool, open_palm: bool, thumbs_up: bool
+    face_present: bool,
+    looking_away: bool,
+    smile: float,
+    hand_present: bool,
+    open_palm: bool,
+    thumbs_up: bool,
+    heart: bool,
 ) -> str:
     if hand_present:
+        if heart:
+            return "A heart… Okay. Keep your eyes on me."
         if thumbs_up:
             return "A thumbs up? You think that's enough?"
         if open_palm:
@@ -679,6 +910,8 @@ class SmoothedSignals:
     hand_present: bool = False
     open_palm: bool = False
     thumbs_up: bool = False
+    heart_score: float = 0.0
+    heart: bool = False
 
 
 @dataclass
@@ -785,7 +1018,7 @@ def run(args: argparse.Namespace) -> int:
             hand_options = vision.HandLandmarkerOptions(
                 base_options=BaseOptions(model_asset_path=hand_model_path),
                 running_mode=vision.RunningMode.VIDEO,
-                num_hands=1,
+                num_hands=2,
             )
             hand_landmarker = vision.HandLandmarker.create_from_options(hand_options)
         except Exception as e:  # noqa: BLE001
@@ -832,6 +1065,7 @@ def run(args: argparse.Namespace) -> int:
     json_interval_ms = 1000.0 / max(1.0, float(args.json_rate_hz))
 
     debug = bool(args.debug)
+    heart_params = heart_params_from_sensitivity(float(getattr(args, "heart_sensitivity", 1.0)))
 
     window_name = args.window_title
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
@@ -936,11 +1170,17 @@ def run(args: argparse.Namespace) -> int:
 
             raw_open_palm = False
             raw_thumbs_up = False
+            raw_heart_score = 0.0
             if hand_present:
                 for hlm in hand_landmarks_list:
                     g = compute_hand_gestures(hlm)
                     raw_open_palm = raw_open_palm or bool(g["openPalm"])
                     raw_thumbs_up = raw_thumbs_up or bool(g["thumbsUp"])
+                raw_heart_score = compute_two_hand_heart_score(
+                    hand_landmarks_list,
+                    params=heart_params,
+                    require_both_touch=not bool(getattr(args, "heart_touch_either", False)),
+                )
 
             # Smooth + hysteresis
             a = ema_alpha(dt_ms, SCORE_TAU_MS)
@@ -951,6 +1191,8 @@ def run(args: argparse.Namespace) -> int:
             smoothed.hand_present = bool(hand_present)
             smoothed.open_palm = bool(hand_present and raw_open_palm)
             smoothed.thumbs_up = bool(hand_present and raw_thumbs_up)
+            smoothed.heart_score = clamp01(smoothed.heart_score + a * (float(raw_heart_score) - smoothed.heart_score))
+            smoothed.heart = bool(hand_present and update_heart_bool(smoothed.heart, smoothed.heart_score, params=heart_params))
 
             next_dialog = pick_dialog_line_with_hand(
                 face_present,
@@ -959,6 +1201,7 @@ def run(args: argparse.Namespace) -> int:
                 smoothed.hand_present,
                 smoothed.open_palm,
                 smoothed.thumbs_up,
+                smoothed.heart,
             )
             dialog_line = update_dialog_stably(now_ms, next_dialog, dialog)
 
@@ -976,7 +1219,9 @@ def run(args: argparse.Namespace) -> int:
                     draw_connections(frame_bgr, hlm, HAND_CONNECTIONS, (255, 209, 0), 2)
 
             gesture = "—"
-            if smoothed.thumbs_up:
+            if smoothed.heart:
+                gesture = "TWO_HAND_HEART"
+            elif smoothed.thumbs_up:
                 gesture = "THUMBS_UP"
             elif smoothed.open_palm:
                 gesture = "OPEN_PALM"
@@ -985,7 +1230,7 @@ def run(args: argparse.Namespace) -> int:
                 f"Smile: {smoothed.smile:.2f}",
                 f"Sad: {smoothed.sadness:.2f}",
                 f"LookAway: {smoothed.look_away_score:.2f}  LookingAway: {'YES' if smoothed.looking_away else 'NO'}",
-                f"Hand: {'YES' if smoothed.hand_present else 'NO'}  Gesture: {gesture}",
+                f"Hand: {'YES' if smoothed.hand_present else 'NO'}  Gesture: {gesture}  Heart: {smoothed.heart_score:.2f}",
             ]
             if debug:
                 hud_lines.append(
@@ -1011,6 +1256,8 @@ def run(args: argparse.Namespace) -> int:
                     "lookingAway": bool(smoothed.looking_away),
                     "handPresent": bool(smoothed.hand_present),
                     "gesture": gesture,
+                    "heartScore": round(smoothed.heart_score, 4),
+                    "heart": bool(smoothed.heart),
                     "dialog": dialog_line,
                 }
                 sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
@@ -1053,6 +1300,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     p.add_argument("--no-hand", action="store_true", help="Disable hand tracking entirely")
     p.add_argument("--hand-interval-ms", type=float, default=80.0, help="Hand inference interval (default: 80ms)")
+    p.add_argument(
+        "--heart-sensitivity",
+        type=float,
+        default=1.25,
+        help="Two-hand heart sensitivity (default: 1.25; higher = easier, lower = stricter)",
+    )
+    p.add_argument(
+        "--heart-touch-either",
+        action="store_true",
+        default=False,
+        help="Less strict: accept heart if fingertip clusters OR any cross-fingertips touch (default: require BOTH)",
+    )
 
     p.add_argument("--draw-face", action="store_true", default=True, help="Draw face mesh (default: on)")
     p.add_argument("--no-draw-face", dest="draw_face", action="store_false", help="Disable face drawing")
