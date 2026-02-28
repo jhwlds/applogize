@@ -11,15 +11,20 @@
 screen character_select_screen():
     modal True
 
-    add Solid("#0a0a14")
+    add Transform(
+        "images/characters/street.png",
+        xsize=config.screen_width,
+        ysize=config.screen_height,
+        fit="cover"
+    )
 
     vbox:
         xalign 0.5
         yalign 0.5
         spacing 40
 
-        text "APPLOGIZE" size 72 color "#ffffff" xalign 0.5 bold True
-        text "Choose your character" size 26 color "#888888" xalign 0.5
+        text "APPLOGIZE" size 72 color "#000000" xalign 0.5 bold True
+        text "Choose your partner" size 26 color "#000000" xalign 0.5
 
         null height 30
 
@@ -27,55 +32,41 @@ screen character_select_screen():
             xalign 0.5
             spacing 60
 
-            # Male
+            # Male - character image
             vbox:
                 spacing 15
 
                 button:
                     xsize 260
                     ysize 360
-                    background Solid("#1a2a4e")
-                    hover_background Solid("#2a3a6e")
+                    background None
+                    hover_background Solid("#ffffff20")
                     action Return("male")
 
-                    vbox:
-                        xalign 0.5
-                        yalign 0.5
-                        spacing 15
-                        text "MALE" size 36 color "#4a90d9" xalign 0.5 bold True
-                        frame:
-                            xsize 100
-                            ysize 100
-                            xalign 0.5
-                            background Solid("#2a3a5e")
-                            text "M" size 48 color "#ffffff" xalign 0.5 yalign 0.5
+                    add Transform(
+                        "images/characters/Angry_apple-headed_character_in_hoodie-removebg-preview.png",
+                        fit="contain",
+                        xsize=240,
+                        ysize=340
+                    ) xalign 0.5 yalign 0.5
 
-                text "Male Character" size 16 color "#888888" xalign 0.5
-
-            # Female
+            # Female - character image
             vbox:
                 spacing 15
 
                 button:
                     xsize 260
                     ysize 360
-                    background Solid("#4e1a3e")
-                    hover_background Solid("#6e2a5e")
+                    background None
+                    hover_background Solid("#ffffff20")
                     action Return("female")
 
-                    vbox:
-                        xalign 0.5
-                        yalign 0.5
-                        spacing 15
-                        text "FEMALE" size 36 color "#ff6b9d" xalign 0.5 bold True
-                        frame:
-                            xsize 100
-                            ysize 100
-                            xalign 0.5
-                            background Solid("#5e2a4e")
-                            text "F" size 48 color "#ffffff" xalign 0.5 yalign 0.5
-
-                text "Female Character" size 16 color "#888888" xalign 0.5
+                    add Transform(
+                        "images/characters/angry_face1.png",
+                        fit="contain",
+                        xsize=240,
+                        ysize=340
+                    ) xalign 0.5 yalign 0.5
 
 
 ################################################################################
