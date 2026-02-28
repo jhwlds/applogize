@@ -424,28 +424,6 @@ screen apology_input_screen():
                     ysize 18
                     background Solid(get_apple_color())
 
-    # Energy display
-    frame:
-        xalign 0.5
-        ypos 570
-        xpadding 16
-        ypadding 8
-        background Frame(Solid("#1a1a2eaa"), 4, 4)
-
-        hbox:
-            spacing 8
-            text "HP" size 16 color "#ff6b9d"
-            frame:
-                yalign 0.5
-                xsize 100
-                ysize 12
-                background Solid("#2a2a3e")
-                frame:
-                    xsize max(1, int(100.0 * energy / max_energy))
-                    ysize 12
-                    background Solid("#ff6b9d")
-            text "[energy]/[max_energy]" size 14 color "#aaaaaa"
-
     # Talk to her + Done buttons
     vbox:
         xalign 0.5

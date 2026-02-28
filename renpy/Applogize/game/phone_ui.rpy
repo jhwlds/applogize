@@ -31,19 +31,6 @@ screen phone_main_screen():
                     size 32
                     color ("#ff4444" if timer_seconds < 30 else "#ffffff")
 
-                hbox:
-                    spacing 6
-                    text "HP" size 20 color "#ff6b9d" yalign 0.5
-                    frame:
-                        yalign 0.5
-                        xsize 120
-                        ysize 16
-                        background Solid("#2a2a3e")
-                        frame:
-                            xsize max(1, int(120.0 * energy / max_energy))
-                            ysize 16
-                            background Solid("#ff6b9d")
-
                 text "CLUES  [len(found_clues)]/[total_clues]":
                     size 20
                     color "#aaaaaa"
