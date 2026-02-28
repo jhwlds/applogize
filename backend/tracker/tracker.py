@@ -1295,7 +1295,9 @@ def run(args: argparse.Namespace) -> int:
                 sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
                 sys.stdout.flush()
 
-            cv2.imshow(window_name, frame_bgr)
+            # Display at 25% size (both apology "Talk to her" and grab_one_last_chance use this)
+            display_frame = cv2.resize(frame_bgr, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_LINEAR)
+            cv2.imshow(window_name, display_frame)
             key = cv2.waitKey(1) & 0xFF
             if key in (27, ord("q")):
                 break
