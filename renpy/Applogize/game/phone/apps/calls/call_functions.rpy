@@ -19,8 +19,8 @@ init -100 python in phone.calls:
         set_current_screen("phone_call")
         show_layer_at("phone_call")
 
-        renpy.show_screen("phone_call", video=video)
-        renpy.with_statement(config.enter_transition)
+        renpy.exports.show_screen("phone_call", video=video)
+        renpy.exports.with_statement(config.enter_transition)
 
         global _nosave
         _nosave = bool(nosave)
@@ -39,10 +39,10 @@ init -100 python in phone.calls:
         set_current_screen(None)
 
         show_layer_at([], reset=True)
-        renpy.hide_screen("phone_call")
+        renpy.exports.hide_screen("phone_call")
         if store.is_renpy_version_or_above(7, 5, 0):
-            renpy.scene(config.video_call_layer)
-        renpy.with_statement(config.exit_transition)
+            renpy.exports.scene(config.video_call_layer)
+        renpy.exports.with_statement(config.exit_transition)
 
         set_current_screen(None)
         store._window_auto = True
