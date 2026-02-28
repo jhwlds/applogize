@@ -40,6 +40,7 @@ python3 tracker.py
 - `q` 또는 `esc`: 종료
 - `d`: 디버그 HUD 토글
 - `j`: JSON 출력 토글 (실행 중 ON/OFF)
+- `s`: 스크린샷 저장 (HUD 없이, `--screenshot-dir` 지정 시)
 
 ## 옵션
 

@@ -710,6 +710,27 @@ screen ending_gameover_screen():
                 text "\"Forgot the anniversary AND booked a solo trip??\"" size 14 color "#cccccc"
                 text "\"That's legendary levels of clueless lmao\"" size 14 color "#cccccc"
 
+        $ _captures_go = get_capture_images()
+        if _captures_go:
+            frame:
+                xalign 0.5
+                xsize 500
+                background Solid("#1a1a2e")
+                xpadding 24
+                ypadding 18
+                vbox:
+                    spacing 12
+                    text "That was your face..." size 16 color "#ff6666" xalign 0.5 bold True
+                    hbox:
+                        xalign 0.5
+                        spacing 12
+                        for path in _captures_go[:6]:
+                            if renpy.loadable(path):
+                                add path:
+                                    fit "cover"
+                                    xsize 140
+                                    ysize 100
+
     textbutton "Try Again":
         xalign 0.5
         yalign 0.9
@@ -743,7 +764,8 @@ screen ending_clear_screen():
 
         null height 30
 
-        # Photo book placeholder
+        # Photo book: pose captures or placeholder
+        $ _captures = get_capture_images()
         frame:
             xalign 0.5
             xsize 500
@@ -759,23 +781,37 @@ screen ending_clear_screen():
                     xalign 0.5
                     spacing 12
 
-                    frame:
-                        xsize 140
-                        ysize 100
-                        background Solid("#2a2a4e")
-                        text "Us" size 20 color "#ffffff" xalign 0.5 yalign 0.5
+                    if _captures:
+                        for path in _captures[:6]:
+                            if renpy.loadable(path):
+                                add path:
+                                    fit "cover"
+                                    xsize 140
+                                    ysize 100
+                            else:
+                                frame:
+                                    xsize 140
+                                    ysize 100
+                                    background Solid("#2a2a4e")
+                                    text "?" size 20 color "#ffffff" xalign 0.5 yalign 0.5
+                    else:
+                        frame:
+                            xsize 140
+                            ysize 100
+                            background Solid("#2a2a4e")
+                            text "Us" size 20 color "#ffffff" xalign 0.5 yalign 0.5
 
-                    frame:
-                        xsize 140
-                        ysize 100
-                        background Solid("#2a4e2a")
-                        text "Tokyo" size 20 color "#ffffff" xalign 0.5 yalign 0.5
+                        frame:
+                            xsize 140
+                            ysize 100
+                            background Solid("#2a4e2a")
+                            text "Tokyo" size 20 color "#ffffff" xalign 0.5 yalign 0.5
 
-                    frame:
-                        xsize 140
-                        ysize 100
-                        background Solid("#4e2a4e")
-                        text "Love" size 20 color "#ffffff" xalign 0.5 yalign 0.5
+                        frame:
+                            xsize 140
+                            ysize 100
+                            background Solid("#4e2a4e")
+                            text "Love" size 20 color "#ffffff" xalign 0.5 yalign 0.5
 
     textbutton "Back to Title":
         xalign 0.5

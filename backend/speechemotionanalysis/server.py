@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+import random
+import re
 import time
 import uuid
 from pathlib import Path
@@ -32,6 +34,22 @@ HUME_POLL_INTERVAL_SECONDS = 1
 # Story reason for Stage 1 answer evaluation
 CORRECT_REASON = "She had a dream where her boyfriend cheated on her."
 OPENAI_MODEL = "gpt-4o-mini"
+
+# Heuristic: dream + cheat keywords (accept without OpenAI when both present)
+DREAM_KEYWORDS = {"dream", "dreamed", "dreamt", "dreams", "nightmare", "sleep"}
+CHEAT_KEYWORDS = {"cheat", "cheated", "cheating", "unfaithful", "affair", "betray", "chatted", "chatting"}
+CHEAT_PHRASES = ["seeing someone else", "see someone else", "someone else", "with someone else"]
+
+
+def _heuristic_correct(answer: str) -> bool:
+    """Return True if answer clearly contains dream + cheating concepts."""
+    if not (answer or "").strip():
+        return False
+    text = answer.strip().lower()
+    tokens = set(re.findall(r"[a-z']+", text))
+    has_dream = bool(tokens & DREAM_KEYWORDS)
+    has_cheat = bool(tokens & CHEAT_KEYWORDS) or any(p in text for p in CHEAT_PHRASES)
+    return has_dream and has_cheat
 
 WAV_MIME_TYPES = {
     "audio/wav",
@@ -138,6 +156,19 @@ def check_answer(body: CheckAnswerRequest) -> Dict[str, Any]:
     if not openai_api_key:
         print("[check_answer] ✗ OPENAI_API_KEY not set", flush=True)
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is required")
+
+    # Heuristic: dream + cheat both present → accept without OpenAI (avoids false negatives)
+    answer_text = (body.answer or "").strip()
+    if answer_text and _heuristic_correct(answer_text):
+        correct_replies = [
+            "You know exactly what you did wrong, and that's how you apologize?",
+            "Finally. You actually figured it out.",
+            "...Yeah. That's it. It still hurts, but at least you get it.",
+        ]
+        reply = random.choice(correct_replies)
+        print(f"[check_answer] ✓ heuristic match (dream+cheat) → correct=True  reply={reply!r}", flush=True)
+        print(f"{'='*60}\n", flush=True)
+        return {"correct": True, "reply": reply}
 
     hint_strength = (
         "Give a GENTLE hint: mention one concept they're missing (dream OR cheating) "

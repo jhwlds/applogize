@@ -1065,6 +1065,10 @@ def run(args: argparse.Namespace) -> int:
     json_interval_ms = 1000.0 / max(1.0, float(args.json_rate_hz))
 
     output_file = getattr(args, "output_file", None)
+    screenshot_dir = getattr(args, "screenshot_dir", None)
+    screenshot_count = 0
+    last_screenshot_ms = 0.0
+    SCREENSHOT_COOLDOWN_MS = 3000.0
     smile_count = 0
     heart_detected_once = False
     gesture = "—"  # fallback if loop exits before assignment
@@ -1225,6 +1229,9 @@ def run(args: argparse.Namespace) -> int:
             )
             dialog_line = update_dialog_stably(now_ms, next_dialog, dialog)
 
+            # Capture raw frame before any overlay (no HUD, no face mesh, no hand lines)
+            capture_frame = frame_bgr.copy() if screenshot_dir else None
+
             # Drawing
             if args.draw_face and face_present:
                 for lm in face_landmarks_list:
@@ -1245,6 +1252,29 @@ def run(args: argparse.Namespace) -> int:
                 gesture = "THUMBS_UP"
             elif smoothed.open_palm:
                 gesture = "OPEN_PALM"
+
+            # Auto-capture on "funny" poses (with cooldown)
+            if (
+                screenshot_dir
+                and capture_frame is not None
+                and (now_ms - last_screenshot_ms) >= SCREENSHOT_COOLDOWN_MS
+            ):
+                funny = (
+                    (smoothed.look_away_score > 0.7 and gesture != "—")
+                    or smoothed.smile > 0.85
+                    or smoothed.sadness > 0.8
+                )
+                if funny:
+                    try:
+                        out_dir = os.path.abspath(os.path.expanduser(screenshot_dir))
+                        os.makedirs(out_dir, exist_ok=True)
+                        screenshot_count += 1
+                        path = os.path.join(out_dir, f"pose_{screenshot_count:03d}.png")
+                        if cv2.imwrite(path, capture_frame):
+                            last_screenshot_ms = now_ms
+                            print(f"[tracker] Screenshot: {path}", file=sys.stderr)
+                    except Exception as e:  # noqa: BLE001
+                        print(f"[tracker] Screenshot failed: {e}", file=sys.stderr)
 
             hud_lines = [
                 f"Smile: {smoothed.smile:.2f}" + (f"  Events: {smile_count}" if output_file else ""),
@@ -1315,6 +1345,17 @@ def run(args: argparse.Namespace) -> int:
                 json_enabled = not json_enabled
             if key == ord("c"):
                 calib.reset(now_ms)
+            if key == ord("s") and screenshot_dir and capture_frame is not None:
+                try:
+                    out_dir = os.path.abspath(os.path.expanduser(screenshot_dir))
+                    os.makedirs(out_dir, exist_ok=True)
+                    screenshot_count += 1
+                    path = os.path.join(out_dir, f"pose_{screenshot_count:03d}.png")
+                    if cv2.imwrite(path, capture_frame):
+                        last_screenshot_ms = now_ms
+                        print(f"[tracker] Screenshot (s): {path}", file=sys.stderr)
+                except Exception as e:  # noqa: BLE001
+                    print(f"[tracker] Screenshot failed: {e}", file=sys.stderr)
 
     finally:
         if output_file:
@@ -1385,6 +1426,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="PATH",
         help="Write smile_count JSON to file on exit (for Ren'Py)",
+    )
+    p.add_argument(
+        "--screenshot-dir",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Directory to save pose screenshots (no HUD); auto + manual (s key)",
     )
 
     p.add_argument("--debug", action="store_true", default=False, help="Show extra HUD/debug help")

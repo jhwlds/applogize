@@ -357,6 +357,7 @@ style navigation_button_text:
 ## https://www.renpy.org/doc/html/screen_special.html#main-menu
 
 default _mm_video_slot = 0
+default main_menu_album_zoom_photo = None
 define _mm_video_duration = 8.018
 define _mm_video_fadein = 0.35
 define _mm_video_fadeout = 0.35
@@ -410,6 +411,149 @@ screen main_menu():
             style "main_menu_vbox"
 
             add Transform("images/ui/game_title.png", zoom=0.3) xalign 1.0
+
+    # Bottom photo album strip (between left menu and right content)
+    frame:
+        xpos 420
+        xanchor 0
+        xsize 800
+        yalign 1.0
+        yoffset -70
+        background Solid("#1a1a2ecc")
+        xpadding 12
+        ypadding 8
+
+        hbox:
+            spacing 12
+            yalign 0.5
+
+            # Thumbnail strip (latest 4)
+            $ _album_captures = get_capture_images()[-4:]
+            if _album_captures:
+                hbox:
+                    spacing 8
+                    for path in _album_captures:
+                        if renpy.loadable(path):
+                            button:
+                                xsize 72
+                                ysize 72
+                                background Solid("#2a2a4e")
+                                hover_background Solid("#3a3a6e")
+                                action [SetVariable("main_menu_album_zoom_photo", path), ShowMenu("main_menu_photo_album")]
+                                add path:
+                                    fit "cover"
+                                    xsize 72
+                                    ysize 72
+            else:
+                text "No photos yet" size 14 color "#888888" yalign 0.5
+
+            null width 1 xfill True
+
+            # Book icon - opens gallery
+            textbutton "📖":
+                text_size 36
+                text_color "#ffffff"
+                text_hover_color "#ffd700"
+                action [SetVariable("main_menu_album_zoom_photo", None), ShowMenu("main_menu_photo_album")]
+
+
+## Photo album gallery (from main menu)
+screen main_menu_photo_album():
+    tag menu
+    modal True
+
+    add Solid("#0a0a14")
+
+    vbox:
+        xalign 0.5
+        yalign 0.0
+        xmaximum 1200
+        spacing 20
+
+        text "Photo Album" size 36 color "#ffd700" xalign 0.5 bold True
+
+        null height 10
+
+        $ _album_all = get_capture_images()
+        $ _album_rows = [_album_all[i:i+4] for i in range(0, len(_album_all), 4)]
+        if _album_all:
+            viewport:
+                xsize 1100
+                ysize 600
+                scrollbars "vertical"
+                mousewheel True
+                draggable True
+
+                vbox:
+                    xalign 0.5
+                    spacing 12
+                    for row in _album_rows:
+                        hbox:
+                            spacing 12
+                            xalign 0.5
+                            for path in row:
+                                if renpy.loadable(path):
+                                    button:
+                                        xsize 250
+                                        ysize 180
+                                        background Solid("#1f1f2f")
+                                        hover_background Solid("#2f2f4a")
+                                        action SetVariable("main_menu_album_zoom_photo", path)
+
+                                        add path:
+                                            fit "cover"
+                                            xsize 250
+                                            ysize 180
+        else:
+            frame:
+                xalign 0.5
+                xsize 500
+                ysize 200
+                background Solid("#1a1a2e")
+                vbox:
+                    xalign 0.5
+                    yalign 0.5
+                    spacing 12
+                    text "No photos yet." size 24 color "#888888" xalign 0.5
+                    text "Play the game and capture poses during video calls!" size 16 color "#666666" xalign 0.5
+
+        null height 20
+
+        textbutton "Close":
+            xalign 0.5
+            text_size 24
+            text_color "#ffffff"
+            text_hover_color "#ffd700"
+            action ShowMenu("main_menu")
+
+    if main_menu_album_zoom_photo and renpy.loadable(main_menu_album_zoom_photo):
+        key "dismiss" action SetVariable("main_menu_album_zoom_photo", None)
+        add Solid("#000000cc")
+        frame:
+            xalign 0.5
+            yalign 0.5
+            xsize 700
+            ysize 550
+            background Solid("#101018")
+            xpadding 12
+            ypadding 12
+
+            has vbox
+            spacing 8
+
+            add main_menu_album_zoom_photo:
+                fit "contain"
+                xalign 0.5
+                yalign 0.5
+                xsize 676
+                ysize 480
+
+            textbutton "Close":
+                xalign 1.0
+                text_size 18
+                text_color "#ffffff"
+                text_hover_color "#dddddd"
+                action SetVariable("main_menu_album_zoom_photo", None)
 
 
 style main_menu_frame is empty

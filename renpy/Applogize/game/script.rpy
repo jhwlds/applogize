@@ -74,7 +74,7 @@ image bg_reunion = Transform(
 )
 
 transform gf_knee_at_textbox:
-    zoom 1.45
+    zoom 1.35
     anchor (0.5, 1.0)
     pos (0.5, 1.05)
 
@@ -147,6 +147,17 @@ init python:
         d = store.videocall_duration
         m, s = d // 60, d % 60
         return "{:02d}:{:02d}".format(m, s)
+
+    def get_capture_images():
+        """Return list of paths like 'captures/pose_001.png' for ending gallery."""
+        import os
+        gamedir = renpy.config.gamedir
+        cap_dir = os.path.join(gamedir, "captures")
+        if not os.path.isdir(cap_dir):
+            return []
+        files = [f for f in os.listdir(cap_dir) if f.lower().endswith(".png")]
+        files.sort()
+        return ["captures/" + f for f in files]
 
     # ---- Voice guess: STT via speechemotionanalysis server POST /analyze (WAV -> transcript) ----
     import urllib.request
@@ -387,10 +398,10 @@ init python:
         import os
         import sys
         base = renpy.config.basedir
+        gamedir = renpy.config.gamedir
         tracker_dir = os.path.abspath(os.path.join(base, "..", "..", "backend", "tracker"))
         tracker_py = os.path.join(tracker_dir, "tracker.py")
         if not os.path.isfile(tracker_py):
-            gamedir = renpy.config.gamedir
             tracker_dir = os.path.abspath(os.path.join(gamedir, "..", "..", "..", "backend", "tracker"))
             tracker_py = os.path.join(tracker_dir, "tracker.py")
         venv_python = os.path.join(tracker_dir, "venv", "bin", "python3") if sys.platform != "win32" else os.path.join(tracker_dir, "venv", "Scripts", "python.exe")
@@ -398,14 +409,20 @@ init python:
             venv_python = os.path.join(tracker_dir, ".venv", "bin", "python3") if sys.platform != "win32" else os.path.join(tracker_dir, ".venv", "Scripts", "python.exe")
         if not os.path.isfile(venv_python):
             venv_python = "python3" if sys.platform != "win32" else "python"
+        smile_file = os.path.join(tracker_dir, "smile_session.json")
+        capture_dir = os.path.join(gamedir, "captures")
+        try:
+            os.makedirs(capture_dir, exist_ok=True)
+        except Exception:
+            capture_dir = None
         try:
             if sys.platform == "darwin":
                 # macOS: run inside Terminal.app which already has camera permission.
                 # An unsigned .app bundle cannot trigger macOS TCC permission dialogs.
-                smile_file = os.path.join(tracker_dir, "smile_session.json")
+                extra = f' --screenshot-dir {capture_dir!r}' if capture_dir else ""
                 cmd = (
                     f'cd {tracker_dir!r} && '
-                    f'{venv_python!r} tracker.py --output-file {smile_file!r}'
+                    f'{venv_python!r} tracker.py --output-file {smile_file!r}{extra}'
                 )
                 subprocess.Popen([
                     "osascript", "-e",
@@ -413,11 +430,15 @@ init python:
                 ])
             elif sys.platform == "win32":
                 # Windows: use start to open new window
-                smile_file = os.path.join(tracker_dir, "smile_session.json")
-                subprocess.Popen(["cmd", "/c", "start", "cmd", "/k", venv_python, tracker_py, "--output-file", smile_file], cwd=tracker_dir)
+                args = [venv_python, tracker_py, "--output-file", smile_file]
+                if capture_dir:
+                    args.extend(["--screenshot-dir", capture_dir])
+                subprocess.Popen(["cmd", "/c", "start", "cmd", "/k"] + args, cwd=tracker_dir)
             else:
-                smile_file = os.path.join(tracker_dir, "smile_session.json")
-                subprocess.Popen([venv_python, tracker_py, "--output-file", smile_file], cwd=tracker_dir, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                args = [venv_python, tracker_py, "--output-file", smile_file]
+                if capture_dir:
+                    args.extend(["--screenshot-dir", capture_dir])
+                subprocess.Popen(args, cwd=tracker_dir, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             renpy.notify("Camera started. Close the camera window when done.")
         except Exception as e:
             renpy.notify("Could not start camera: " + str(e)[:50])
