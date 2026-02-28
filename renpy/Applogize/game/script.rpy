@@ -749,7 +749,7 @@ label stage2:
     $ rage_gauge = max(0, rage_gauge - 10)
     $ quick_menu = False
     $ videocall_duration = 0
-    $ idle_seconds = 0
+    $ allow_phone_idle_warning = False
     $ voice_status = ""
     $ guess_text = ""
     $ voice_emotions = {}
@@ -791,11 +791,6 @@ label stage2_loop:
             phone_gf "[gf_reply]"
         else:
             phone_gf "You call that an apology?!"
-    elif result == "idle_warning":
-        $ rage_gauge = min(100, rage_gauge + 5)
-        show gf videocall onlayer phone_video_call
-        with vpunch
-        phone_gf "Are you spacing out right now?"
     elif result == "end_response":
         if rage_gauge < 100:
             show gf videocall onlayer phone_video_call
@@ -856,7 +851,6 @@ label check_rescue:
     with dissolve
 
     menu:
-        "One more chance..."
         "Grab one last chance":
             mc "(One more shot. I can't mess this up!)"
             $ quick_menu = False
