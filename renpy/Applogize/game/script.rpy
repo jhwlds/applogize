@@ -31,6 +31,8 @@ default gf_reply = ""  # girlfriend's AI-generated response line from /check_ans
 default _call_overlay_result = ""  # "correct"/"wrong"/"back_to_phone"/"skip", read by call_recording_overlay timer
 default videocall_duration = 0  # seconds elapsed during video call (Stage 2)
 default last_smile_count = 0    # smile events when End call pressed (from tracker JSON)
+default evaluate_apology_url = "http://localhost:19000/evaluate_apology"
+default stage2_face_data = {}   # tracker session data for Stage 2
 
 ## Characters ##################################################################
 
@@ -48,6 +50,7 @@ image gf normal = "images/characters/idle_pose.png"
 image gf angry1 = "images/characters/angry_face1.png"
 image gf angry2 = "images/characters/angry_face2.png"
 image gf videocall = "images/characters/video_call1.jpg"
+image gf thinking = "images/characters/thinking.jpg" 
 
 image firegirl = "images/characters/firegirl.jpeg"
 image semifire = "images/characters/semifire.jpeg"
@@ -195,6 +198,8 @@ init python:
             emotions = body_json.get("emotions") or {}
             print(f"[STT worker] ← /analyze response  transcript={transcript!r}", flush=True)
             print(f"[STT worker]   emotions={emotions}", flush=True)
+            if getattr(store, "stage", 0) == 2:
+                print(f"[Stage2] Voice → /analyze  transcript={transcript!r}  top_emotions={list((emotions or {}).items())[:5]}", flush=True)
             # Keep wav for debugging; uncomment to clean up:
             # try:
             #     os.remove(wav_path)
@@ -448,6 +453,88 @@ init python:
         except Exception:
             pass
 
+    def run_evaluate_apology():
+        """Stop voice+tracker, collect data, POST to /evaluate_apology, return 'great' or 'bad'."""
+        import json
+        import os
+        import urllib.request
+        import urllib.error
+
+        try:
+            renpy.show("gf thinking", layer="phone_video_call")
+            renpy.restart_interaction()
+            renpy.pause(1.2, hard=True)  # 영상통화 화면 내에서 생각하는 표정으로 잠시 전환
+
+            # 1. Stop voice if recording, wait for analyze to complete
+            stop_voice_record_if_running()
+            max_wait = 25.0
+            poll_interval = 0.2
+            elapsed = 0.0
+            while getattr(store, "voice_status", "") == "recording" and elapsed < max_wait:
+                renpy.pause(poll_interval, hard=True)
+                elapsed += poll_interval
+
+            transcript = (store.guess_text or "").strip()
+            voice_emotions = store.voice_emotions or {}
+
+            # 2. Stop tracker, read session file
+            run_tracker_stop()
+            renpy.pause(0.6, hard=True)
+            base = renpy.config.basedir
+            tracker_dir = os.path.abspath(os.path.join(base, "..", "..", "backend", "tracker"))
+            if not os.path.isdir(tracker_dir):
+                gamedir = renpy.config.gamedir
+                tracker_dir = os.path.abspath(os.path.join(gamedir, "..", "..", "..", "backend", "tracker"))
+            session_path = os.path.join(tracker_dir, "smile_session.json")
+
+            face_data = None
+            gesture_val = None
+            try:
+                if os.path.isfile(session_path):
+                    with open(session_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    store.stage2_face_data = data
+                    face_data = {
+                        "smile_count": int(data.get("smile_count", 0)),
+                        "smile": float(data.get("smile", 0.0)),
+                        "lookAway": float(data.get("lookAway", 0.0)),
+                        "sadness": float(data.get("sadness", 0.0)),
+                    }
+                    gesture_val = data.get("gesture")
+                    try:
+                        os.remove(session_path)
+                    except Exception:
+                        pass
+            except Exception:
+                store.stage2_face_data = {}
+
+            # 3. POST to evaluate_apology
+            url = store.evaluate_apology_url
+            payload = {
+                "transcript": transcript,
+                "voice_emotions": voice_emotions,
+                "face": face_data,
+                "gesture": gesture_val,
+            }
+            try:
+                req_data = json.dumps(payload).encode("utf-8")
+                req = urllib.request.Request(
+                    url,
+                    data=req_data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    body = json.loads(resp.read().decode("utf-8"))
+                accept = bool(body.get("accept", False))
+                store.gf_reply = (body.get("reply") or "").strip()
+                return "great" if accept else "bad"
+            except Exception as e:
+                print(f"[evaluate_apology] ✗ error: {e}", flush=True)
+                return "bad"
+        finally:
+            renpy.show("gf videocall", layer="phone_video_call")
+
     class RunTrackerAction(renpy.store.Action):
         """Start tracker (camera) in background."""
         def __call__(self):
@@ -663,6 +750,9 @@ label stage2:
     $ quick_menu = False
     $ videocall_duration = 0
     $ idle_seconds = 0
+    $ voice_status = ""
+    $ guess_text = ""
+    $ voice_emotions = {}
 
     # 캐릭터를 비디오콜 레이어에 표시 후 영상통화 시작
     show gf videocall onlayer phone_video_call
@@ -679,11 +769,17 @@ label stage2_loop:
     $ result = _return
     $ quick_menu = True
 
+    if result == "evaluate":
+        $ result = run_evaluate_apology()
+
     if result == "great":
         $ rage_gauge = max(0, rage_gauge - 10)
         show gf videocall onlayer phone_video_call
         with dissolve
-        phone_gf "...Took you long enough to actually apologize properly."
+        if gf_reply:
+            phone_gf "[gf_reply]"
+        else:
+            phone_gf "...Took you long enough to actually apologize properly."
         phone end call
         scene onlayer phone_video_call
         jump stage2_success
@@ -691,7 +787,10 @@ label stage2_loop:
         $ rage_gauge = min(100, rage_gauge + 10)
         show gf videocall onlayer phone_video_call
         with vpunch
-        phone_gf "You call that an apology?!"
+        if gf_reply:
+            phone_gf "[gf_reply]"
+        else:
+            phone_gf "You call that an apology?!"
     elif result == "idle_warning":
         $ rage_gauge = min(100, rage_gauge + 5)
         show gf videocall onlayer phone_video_call

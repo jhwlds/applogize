@@ -4,7 +4,7 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 logging.basicConfig(
     level=logging.INFO,
@@ -112,6 +112,20 @@ class CheckAnswerRequest(BaseModel):
     emotions: Dict[str, float] = {}
 
 
+class EvaluateApologyFace(BaseModel):
+    smile_count: int = 0
+    smile: float = 0.0
+    lookAway: float = 0.0
+    sadness: float = 0.0
+
+
+class EvaluateApologyRequest(BaseModel):
+    transcript: str = ""
+    voice_emotions: Dict[str, float] = {}
+    face: Optional[EvaluateApologyFace] = None
+    gesture: Optional[str] = None
+
+
 @app.post("/check_answer")
 def check_answer(body: CheckAnswerRequest) -> Dict[str, Any]:
     print(f"\n{'='*60}", flush=True)
@@ -179,6 +193,93 @@ def check_answer(body: CheckAnswerRequest) -> Dict[str, Any]:
     print(f"[check_answer] ◀ RESPONSE  correct={correct}  reply={reply!r}", flush=True)
     print(f"{'='*60}\n", flush=True)
     return {"correct": correct, "reply": reply}
+
+
+@app.post("/evaluate_apology")
+def evaluate_apology(body: EvaluateApologyRequest) -> Dict[str, Any]:
+    """Stage 2: Evaluate apology sincerity from voice + face + gesture."""
+    print(f"\n{'='*60}", flush=True)
+    print(f"[evaluate_apology] ▶ REQUEST", flush=True)
+    print(f"[evaluate_apology]   transcript: {body.transcript!r}", flush=True)
+    print(f"[evaluate_apology]   voice_emotions: {body.voice_emotions}", flush=True)
+    print(f"[evaluate_apology]   face: {body.face}", flush=True)
+    print(f"[evaluate_apology]   gesture: {body.gesture!r}", flush=True)
+
+    openai_api_key = _get_setting("OPENAI_API_KEY")
+    if not openai_api_key:
+        print("[evaluate_apology] ✗ OPENAI_API_KEY not set", flush=True)
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is required")
+
+    face_str = "N/A"
+    if body.face is not None:
+        face_str = (
+            f"smile_count={body.face.smile_count}, smile={body.face.smile:.2f}, "
+            f"lookAway={body.face.lookAway:.2f}, sadness={body.face.sadness:.2f}"
+        )
+    voice_emotions_str = (
+        ", ".join(f"{k}: {v:.2f}" for k, v in sorted(body.voice_emotions.items(), key=lambda x: -x[1]))
+        if body.voice_emotions else "N/A"
+    )
+
+    system_prompt = (
+        "You are the judge of a couples' apology game (Stage 2).\n\n"
+        "Evaluate whether the player's apology should be ACCEPTED based on a holistic assessment of:\n"
+        "1. **Voice transcript**: What they said. Sincere apologies acknowledge wrongdoing specifically.\n"
+        "2. **Voice emotions**: Tone/sentiment from speech (sadness, guilt, sincerity good; anger, contempt bad).\n"
+        "3. **Face**: smile_count high during apology = inappropriate (smiling when apologizing is bad). "
+        "lookAway high = not making eye contact (bad). sadness = appropriate remorse.\n"
+        "4. **Gesture**: TWO_HAND_HEART or OPEN_PALM can show sincerity. THUMBS_UP during apology may seem casual.\n\n"
+        "If transcript is empty or face/gesture data is missing, weigh what you have. Missing data is not automatically bad.\n\n"
+        "Reply rules (CRITICAL – make each reply feel unique):\n"
+        "- The 'reply' field MUST be written in ENGLISH.\n"
+        "- Short emotional dialogue (1–2 sentences) spoken BY THE GIRLFRIEND.\n"
+        "- **React directly to what the player said.** Reference or echo specific words/phrases from their apology when natural. "
+        "E.g. if they mention 'anniversary', 'dream', or 'trip', weave that into her reaction.\n"
+        "- **Vary the response every time.** Avoid generic lines like 'I forgive you.' Create distinct reactions: "
+        "sarcastic relief, reluctant acceptance, genuine softening, cold dismissal, exasperated rejection, etc.\n"
+        "- accept=true: she is moved or softening. Vary tone: relieved, still hurt but accepting, touched, surprised they finally got it.\n"
+        "- accept=false: still hurt. Vary tone: dismissive, frustrated, unimpressed, sarcastic, disappointed, angry.\n"
+        "- Match her reply to the quality of their apology: shallow apology → sharper rebuke; heartfelt but flawed → mixed reaction.\n\n"
+        "Respond ONLY with valid JSON, no markdown:\n"
+        '{"accept": true, "reply": "..."}'
+    )
+
+    user_parts = [
+        f"Transcript: {body.transcript or '(empty)'}",
+        f"Voice emotions: {voice_emotions_str}",
+        f"Face: {face_str}",
+        f"Gesture: {body.gesture or 'N/A'}",
+    ]
+    user_message = "\n".join(user_parts)
+
+    print(f"[evaluate_apology] → sending to OpenAI ({OPENAI_MODEL})", flush=True)
+    print(f"[evaluate_apology]   user_message:\n{user_message}", flush=True)
+
+    try:
+        client = OpenAI(api_key=openai_api_key)
+        completion = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            temperature=0.9,
+            timeout=25,
+        )
+        raw = completion.choices[0].message.content or "{}"
+        print(f"[evaluate_apology] ← OpenAI raw response: {raw}", flush=True)
+        result = json.loads(raw)
+        accept = bool(result.get("accept", False))
+        reply = str(result.get("reply", "...")).strip()
+    except Exception as exc:
+        logger.error("OpenAI evaluate_apology failed: %s", exc)
+        print(f"[evaluate_apology] ✗ OpenAI error: {exc}", flush=True)
+        raise HTTPException(status_code=502, detail=f"OpenAI request failed: {exc}") from exc
+
+    print(f"[evaluate_apology] ◀ RESPONSE  accept={accept}  reply={reply!r}", flush=True)
+    print(f"{'='*60}\n", flush=True)
+    return {"accept": accept, "reply": reply}
 
 
 @app.get("/media/{file_id}")

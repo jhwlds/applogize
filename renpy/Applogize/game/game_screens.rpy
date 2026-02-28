@@ -575,32 +575,46 @@ screen apology_input_screen():
 
             null height 8
 
-            # 컨트롤 버튼
+            # Voice status (Stage2 record → analyze)
+            if voice_status:
+                hbox:
+                    spacing 8
+                    text "Voice:" size 12 color "#aaaaaa"
+                    if voice_status == "recording":
+                        text "Recording..." size 12 color "#ffcc00"
+                    elif voice_status == "ok":
+                        text "OK" size 12 color "#88ff88"
+                    elif voice_status == "error":
+                        text "[voice_error_message]" size 11 color "#ff6666"
+            null height 4
+
+            # 컨트롤 버튼: Apologize / Done 토글
             vbox:
                 spacing 12
                 xfill True
 
-                textbutton "Talk to her":
-                    xfill True
-                    xsize 376
-                    ysize 50
-                    background Solid("#2a5e2a")
-                    hover_background Solid("#3a8a3a")
-                    text_size 16
-                    text_color "#ffffff"
-                    text_xalign 0.5
-                    action RunTrackerAction()
-
-                textbutton "Done":
-                    xfill True
-                    xsize 376
-                    ysize 50
-                    background Solid("#2a3a5e")
-                    hover_background Solid("#3a4a7e")
-                    text_size 16
-                    text_color "#ffffff"
-                    text_xalign 0.5
-                    action Return("great")
+                if voice_status == "recording":
+                    textbutton "Done":
+                        xfill True
+                        xsize 376
+                        ysize 50
+                        background Solid("#2a5e2a")
+                        hover_background Solid("#3a8a3a")
+                        text_size 16
+                        text_color "#ffffff"
+                        text_xalign 0.5
+                        action Return("evaluate")
+                else:
+                    textbutton "Apologize":
+                        xfill True
+                        xsize 376
+                        ysize 50
+                        background Solid("#2a5e2a")
+                        hover_background Solid("#3a8a3a")
+                        text_size 16
+                        text_color "#ffffff"
+                        text_xalign 0.5
+                        action [Function(run_tracker_start), Function(start_voice_record)]
 
                 textbutton "End call":
                     xfill True
@@ -624,6 +638,10 @@ screen apology_input_screen():
         text_size 14
         text_color "#ffcccc"
         action [SetVariable("rage_gauge", 100), Return("end_response")]
+
+    # 녹음 중일 때 화면 갱신 (voice_status 표시용)
+    if voice_status == "recording":
+        timer 0.5 repeat True action NullAction()
 
     # 타이머: videocall_duration + idle_seconds (idle 30초 시 경고)
     timer 1.0 repeat True action [

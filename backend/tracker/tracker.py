@@ -1067,6 +1067,7 @@ def run(args: argparse.Namespace) -> int:
     output_file = getattr(args, "output_file", None)
     smile_count = 0
     heart_detected_once = False
+    gesture = "—"  # fallback if loop exits before assignment
     smile_was_above = False
     SMILE_EVENT_THRESHOLD = 0.50
     SMILE_EVENT_RESET = 0.35
@@ -1273,7 +1274,14 @@ def run(args: argparse.Namespace) -> int:
                     if out_dir:
                         os.makedirs(out_dir, exist_ok=True)
                     with open(out_path, "w", encoding="utf-8") as f:
-                        json.dump({"smile_count": smile_count, "heart_detected": heart_detected_once}, f, ensure_ascii=False)
+                        json.dump({
+                            "smile_count": smile_count,
+                            "heart_detected": heart_detected_once,
+                            "gesture": gesture,
+                            "smile": round(smoothed.smile, 4),
+                            "lookAway": round(smoothed.look_away_score, 4),
+                            "sadness": round(smoothed.sadness, 4),
+                        }, f, ensure_ascii=False)
                 except Exception:  # noqa: BLE001
                     pass
 
@@ -1316,7 +1324,14 @@ def run(args: argparse.Namespace) -> int:
                 if out_dir:
                     os.makedirs(out_dir, exist_ok=True)
                 with open(out_path, "w", encoding="utf-8") as f:
-                    json.dump({"smile_count": smile_count, "heart_detected": heart_detected_once}, f, ensure_ascii=False)
+                    json.dump({
+                        "smile_count": smile_count,
+                        "heart_detected": heart_detected_once,
+                        "gesture": gesture,
+                        "smile": round(smoothed.smile, 4),
+                        "lookAway": round(smoothed.look_away_score, 4),
+                        "sadness": round(smoothed.sadness, 4),
+                    }, f, ensure_ascii=False)
             except Exception as e:  # noqa: BLE001
                 print(f"[tracker] Failed to write output file: {e}", file=sys.stderr)
         cap.release()
