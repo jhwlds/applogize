@@ -836,6 +836,11 @@ label stage2_loop:
 
     if result == "evaluate":
         $ result = run_evaluate_apology()
+    elif result == "skip":
+        $ run_tracker_stop()
+        $ stop_voice_record_if_running()
+        $ store.gf_reply = ""
+        $ result = "great"
 
     if result == "great":
         $ rage_gauge = max(0, rage_gauge - 10)

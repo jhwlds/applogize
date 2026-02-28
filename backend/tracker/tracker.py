@@ -2,6 +2,7 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
 import time
 import urllib.request
@@ -1067,6 +1068,13 @@ def run(args: argparse.Namespace) -> int:
     output_file = getattr(args, "output_file", None)
     screenshot_dir = getattr(args, "screenshot_dir", None)
     screenshot_count = 0
+    if screenshot_dir:
+        out_dir = os.path.abspath(os.path.expanduser(screenshot_dir))
+        if os.path.isdir(out_dir):
+            for f in os.listdir(out_dir):
+                m = re.match(r"pose_(\d+)\.png", f, re.I)
+                if m:
+                    screenshot_count = max(screenshot_count, int(m.group(1)))
     last_screenshot_ms = 0.0
     SCREENSHOT_COOLDOWN_MS = 3000.0
     smile_count = 0

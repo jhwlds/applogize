@@ -626,6 +626,17 @@ screen apology_input_screen():
                     text_xalign 0.5
                     action [Function(stop_and_apply_smile_rage), Return("end_response")]
 
+                textbutton "Skip (Happy End)":
+                    xfill True
+                    xsize 376
+                    ysize 40
+                    background Solid("#2a4e5e")
+                    hover_background Solid("#3a6e8a")
+                    text_size 14
+                    text_color "#aaddff"
+                    text_xalign 0.5
+                    action Return("skip")
+
     # [DEBUG] 분노100 테스트
     textbutton "[[DEBUG]] 분노100":
         xalign 0.98
