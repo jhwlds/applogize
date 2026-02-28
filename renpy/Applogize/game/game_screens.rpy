@@ -463,6 +463,18 @@ screen apology_input_screen():
                 text_xalign 0.5
                 action [Function(stop_and_apply_smile_rage), Return("end_response")]
 
+    # [임시] 분노게이지 100으로 채워서 바로 check_rescue 테스트
+    textbutton "[[DEBUG]] 분노100":
+        xalign 0.98
+        yalign 0.02
+        xpadding 10
+        ypadding 4
+        background Solid("#5e2e5e")
+        hover_background Solid("#7e4e7e")
+        text_size 14
+        text_color "#ffcccc"
+        action [SetVariable("rage_gauge", 100), Return("end_response")]
+
 
 ################################################################################
 ## Ending - Game Over
