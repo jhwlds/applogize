@@ -227,6 +227,16 @@ init python:
                 store.guess_text = store.guess_text
             renpy.invoke_in_main_thread(set_err)
 
+    def stop_voice_record_if_running():
+        """Kill recording subprocess when user skips (avoids zombie process)."""
+        proc = getattr(store, "_record_proc", None)
+        if proc is not None and proc.poll() is None:
+            try:
+                proc.send_signal(_signal.SIGTERM)
+            except Exception:
+                pass
+            store._record_proc = None
+
     def start_voice_record():
         """Start recording in a thread; UI shows status via store.voice_status."""
         import threading
