@@ -6,11 +6,18 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 import requests
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from openai import OpenAI
 
 app = FastAPI(title="Applogize Hume Bridge")
 
@@ -21,6 +28,14 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 HUME_API_BASE = "https://api.hume.ai/v0"
 HUME_JOB_TIMEOUT_SECONDS = 60
 HUME_POLL_INTERVAL_SECONDS = 1
+
+# Story reason for Stage 1 answer evaluation
+CORRECT_REASON = (
+    "The player character forgot the couple's 100-day anniversary (February 28) "
+    "and secretly booked a solo trip to Tokyo on that exact day, "
+    "despite having promised to go together."
+)
+OPENAI_MODEL = "gpt-4o-mini"
 
 WAV_MIME_TYPES = {
     "audio/wav",
@@ -96,6 +111,70 @@ def health() -> Dict[str, str]:
     return {"status": "ok"}
 
 
+class CheckAnswerRequest(BaseModel):
+    answer: str
+    emotions: Dict[str, float] = {}
+
+
+@app.post("/check_answer")
+def check_answer(body: CheckAnswerRequest) -> Dict[str, Any]:
+    print(f"\n{'='*60}", flush=True)
+    print(f"[check_answer] ▶ REQUEST", flush=True)
+    print(f"[check_answer]   answer   : {body.answer!r}", flush=True)
+    print(f"[check_answer]   emotions : {body.emotions}", flush=True)
+
+    openai_api_key = _get_setting("OPENAI_API_KEY")
+    if not openai_api_key:
+        print("[check_answer] ✗ OPENAI_API_KEY not set", flush=True)
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is required")
+
+    emotions_str = ", ".join(
+        f"{k}: {v:.2f}" for k, v in sorted(body.emotions.items(), key=lambda x: -x[1])
+    ) if body.emotions else "N/A"
+
+    system_prompt = (
+        "You are the judge of a couples' narrative game. "
+        "Decide whether the player correctly identified the reason for the girlfriend's anger. "
+        "Consider partial or paraphrased answers as correct if the core reason is captured. "
+        "Respond ONLY with a valid JSON object — no markdown, no explanation — in this exact shape:\n"
+        '{"correct": true, "reply": "<girlfriend\'s in-game response line in Korean>"}'
+    )
+
+    user_message = (
+        f"화가 난 이유: {CORRECT_REASON}\n"
+        f"유저 입력 (음성 인식 텍스트): {body.answer}\n"
+        f"음성 감정 분석: {emotions_str}"
+    )
+
+    print(f"[check_answer] → sending to OpenAI ({OPENAI_MODEL})", flush=True)
+    print(f"[check_answer]   user_message:\n{user_message}", flush=True)
+
+    try:
+        client = OpenAI(api_key=openai_api_key)
+        completion = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            timeout=25,
+        )
+        raw = completion.choices[0].message.content or "{}"
+        print(f"[check_answer] ← OpenAI raw response: {raw}", flush=True)
+        result = json.loads(raw)
+        correct = bool(result.get("correct", False))
+        reply = str(result.get("reply", "...")).strip()
+    except Exception as exc:
+        logger.error("OpenAI check_answer failed: %s", exc)
+        print(f"[check_answer] ✗ OpenAI error: {exc}", flush=True)
+        raise HTTPException(status_code=502, detail=f"OpenAI request failed: {exc}") from exc
+
+    print(f"[check_answer] ◀ RESPONSE  correct={correct}  reply={reply!r}", flush=True)
+    print(f"{'='*60}\n", flush=True)
+    return {"correct": correct, "reply": reply}
+
+
 @app.get("/media/{file_id}")
 def get_media(file_id: str) -> FileResponse:
     file_path = UPLOAD_DIR / f"{file_id}.wav"
@@ -106,8 +185,12 @@ def get_media(file_id: str) -> FileResponse:
 
 @app.post("/analyze")
 def analyze(file: UploadFile = File(...)) -> Dict[str, Any]:
+    print(f"\n{'='*60}", flush=True)
+    print(f"[analyze] ▶ REQUEST  filename={file.filename!r}  content_type={file.content_type!r}", flush=True)
+
     hume_api_key = _get_setting("HUME_API_KEY")
     if not hume_api_key:
+        print("[analyze] ✗ HUME_API_KEY not set", flush=True)
         raise HTTPException(status_code=500, detail="HUME_API_KEY is required")
 
     _validate_wav(file)
@@ -116,15 +199,21 @@ def analyze(file: UploadFile = File(...)) -> Dict[str, Any]:
     file_path = UPLOAD_DIR / f"{file_id}.wav"
     _save_upload(file, file_path)
     wav_size_bytes = file_path.stat().st_size
+    print(f"[analyze]   saved WAV  file_id={file_id}  size={wav_size_bytes} bytes", flush=True)
 
     predictions: Any
     try:
+        print(f"[analyze] → submitting job to Hume...", flush=True)
         job_id = _start_hume_job_from_file(hume_api_key, file_path)
+        print(f"[analyze]   Hume job_id={job_id}  waiting for completion...", flush=True)
         _wait_until_done(hume_api_key, job_id)
+        print(f"[analyze]   Hume job done, fetching predictions...", flush=True)
         predictions = _get_predictions(hume_api_key, job_id)
     except requests.RequestException as exc:
+        print(f"[analyze] ✗ Hume request error: {exc}", flush=True)
         raise HTTPException(status_code=502, detail=f"Hume request failed: {exc}") from exc
     except RuntimeError as exc:
+        print(f"[analyze] ✗ Hume runtime error: {exc}", flush=True)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     finally:
         _safe_delete_file(file_path)
@@ -163,6 +252,10 @@ def analyze(file: UploadFile = File(...)) -> Dict[str, Any]:
             flush=True,
         )
 
+    top_emotions = sorted(target_emotions.items(), key=lambda x: -x[1])[:5] if target_emotions else []
+    print(f"[analyze] ◀ RESPONSE  transcript={transcript!r}", flush=True)
+    print(f"[analyze]   top emotions: {top_emotions}", flush=True)
+    print(f"{'='*60}\n", flush=True)
     return {
         "file_id": file_id,
         "raw_hume_job_id": job_id,

@@ -1,5 +1,6 @@
-﻿fastapi
+fastapi
 uvicorn[standard]
 requests
 python-multipart
 pydantic
+openai

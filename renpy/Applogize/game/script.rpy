@@ -17,12 +17,14 @@ default rescue_used = False
 
 ## Voice guess (Stage 1) – STT via speechemotionanalysis server /analyze; answer check via server
 default analyze_url = "http://localhost:19000/analyze"
-default answer_check_url = "http://localhost:8000/check_answer"
+default answer_check_url = "http://localhost:19000/check_answer"
 default guess_text = ""
 default voice_status = ""  # "", "recording", "ok", "error"
 default voice_error_message = ""  # last exception message when voice_status == "error"
 default server_guess_result = None  # True/False/None after submit
 default heart_rescue_success = False  # True if heart detected in grab-one-last-chance flow
+default voice_emotions = {}  # emotion dict from /analyze, forwarded to /check_answer
+default gf_reply = ""  # girlfriend's AI-generated response line from /check_answer
 
 ## Characters ##################################################################
 
@@ -154,6 +156,7 @@ init python:
             with urllib.request.urlopen(req, timeout=70) as resp:
                 body_json = json.loads(resp.read().decode("utf-8"))
             transcript = (body_json.get("transcript") or "").strip()
+            emotions = body_json.get("emotions") or {}
             # Keep wav for debugging; uncomment to clean up:
             # try:
             #     os.remove(wav_path)
@@ -161,6 +164,7 @@ init python:
             #     pass
             def set_result():
                 store.guess_text = transcript
+                store.voice_emotions = emotions
                 store.voice_status = "ok" if transcript else "error"
             renpy.invoke_in_main_thread(set_result)
         except subprocess.TimeoutExpired:
@@ -212,20 +216,25 @@ init python:
             return renpy.store.Return("correct")
 
     class SubmitGuessAction(renpy.store.Action):
-        """POST guess_text to answer_check_url and return correct/wrong."""
+        """POST guess_text + emotions to answer_check_url and return correct/wrong."""
         def __call__(self):
             try:
-                data = json.dumps({"answer": (store.guess_text or "").strip()}).encode("utf-8")
+                payload = {
+                    "answer": (store.guess_text or "").strip(),
+                    "emotions": store.voice_emotions or {},
+                }
+                data = json.dumps(payload).encode("utf-8")
                 req = urllib.request.Request(
                     store.answer_check_url,
                     data=data,
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
-                with urllib.request.urlopen(req, timeout=10) as resp:
+                with urllib.request.urlopen(req, timeout=30) as resp:
                     body = json.loads(resp.read().decode("utf-8"))
                 ok = bool(body.get("correct", False))
                 store.server_guess_result = ok
+                store.gf_reply = (body.get("reply") or "").strip()
                 return renpy.store.Return("correct" if ok else "wrong")
             except Exception as e:
                 store.server_guess_result = None
@@ -448,8 +457,11 @@ label stage1_wrong:
     show gf angry1 at truecenter
     with vpunch
 
-    gf "That's not it at all."
-    gf "Are you even trying right now?"
+    if gf_reply:
+        gf "[gf_reply]"
+    else:
+        gf "That's not it at all."
+        gf "Are you even trying right now?"
 
     mc "(No, that wasn't it... Let me think again.)"
 
@@ -466,10 +478,13 @@ label stage1_correct:
     show gf normal at truecenter
     with dissolve
 
-    gf "...Yeah."
-    gf "That's why I'm upset."
-    gf "But knowing the reason isn't enough."
-    gf "You need to apologize. For real."
+    if gf_reply:
+        gf "[gf_reply]"
+    else:
+        gf "...Yeah."
+        gf "That's why I'm upset."
+        gf "But knowing the reason isn't enough."
+        gf "You need to apologize. For real."
 
     mc "(I figured it out. Now I need to apologize sincerely.)"
 
