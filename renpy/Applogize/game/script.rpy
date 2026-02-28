@@ -226,6 +226,16 @@ init python:
                 store.guess_text = store.guess_text
             renpy.invoke_in_main_thread(set_err)
 
+    def stop_voice_record_if_running():
+        """Kill recording subprocess when user skips (avoids zombie process)."""
+        proc = getattr(store, "_record_proc", None)
+        if proc is not None and proc.poll() is None:
+            try:
+                proc.send_signal(_signal.SIGTERM)
+            except Exception:
+                pass
+            store._record_proc = None
+
     def start_voice_record():
         """Start recording in a thread; UI shows status via store.voice_status."""
         import threading
@@ -557,12 +567,11 @@ label stage1_call:
 
     phone end call
 
-    $ print(f"[stage1_call] _call_overlay_result={_call_overlay_result!r}", flush=True)
-    if _call_overlay_result == "back_to_phone":
+    $ _r = _return if _return else _call_overlay_result
+    $ print(f"[stage1_call] _return={_return!r} _call_overlay_result={_call_overlay_result!r}", flush=True)
+    if _r == "back_to_phone":
         jump stage1_phone_after_call
-    elif _call_overlay_result == "correct":
-        jump stage1_correct
-    elif _call_overlay_result == "skip":
+    elif _r == "correct" or _r == "skip":
         jump stage1_correct
     else:
         jump stage1_wrong
@@ -580,11 +589,10 @@ label stage1_call_retry:
 
     phone end call
 
-    if _call_overlay_result == "back_to_phone":
+    $ _r = _return if _return else _call_overlay_result
+    if _r == "back_to_phone":
         jump stage1_phone_after_call
-    elif _call_overlay_result == "correct":
-        jump stage1_correct
-    elif _call_overlay_result == "skip":
+    elif _r == "correct" or _r == "skip":
         jump stage1_correct
     else:
         jump stage1_wrong
