@@ -275,14 +275,14 @@ screen call_recording_overlay():
                     background Solid(("#cc2222" if call_remaining <= 5 else "#2a2a3e"))
                     text "[call_remaining]s" size 16 color "#ffffff" bold True
 
-            # Countdown progress bar
+            # Countdown progress bar (376 = panel 420 - xpadding 22*2)
             frame:
-                xfill True
+                xsize 376
                 ysize 6
                 background Solid("#2a2a3e")
 
                 frame:
-                    xsize int(420 * call_remaining / 15.0)
+                    xsize int(376 * call_remaining / 15.0)
                     ysize 6
                     background Solid(("#ff4444" if call_remaining <= 5 else "#44aaff"))
 
@@ -359,7 +359,7 @@ screen call_recording_overlay():
                 action Return("skip")
 
             # Cancel / back
-            textbutton "< Cancel call":
+            textbutton "< Check your phone again":
                 xalign 0.5
                 text_size 13
                 text_color "#666666"
@@ -502,119 +502,147 @@ screen guess_reason_screen():
 
 
 ################################################################################
-## Apology Input Screen (Stage 2)
+## Apology Input Screen (Stage 2) - FaceTime/Zoom-style Video Call UI
 ################################################################################
 
 screen apology_input_screen():
     modal True
 
-    add Solid("#0f0f23")
-
-    # Video call frame
+    # Scene (bg_videocall + gf) shows through as the "video feed" - no full cover
+    # Top bar - FaceTime-style: name + call timer
     frame:
-        xalign 0.5
-        yalign 0.25
-        xsize 600
-        ysize 400
-        background Solid("#1a1a2e")
-
-        vbox:
-            xalign 0.5
-            yalign 0.5
-            spacing 10
-
-            text "VIDEO CALL" size 16 color "#aaaaaa" xalign 0.5
-            frame:
-                xsize 200
-                ysize 200
-                xalign 0.5
-                background Solid("#2a1a2e")
-                text "GF" size 48 color "#ff6b9d" xalign 0.5 yalign 0.5
-            text "Girlfriend" size 18 color "#ffffff" xalign 0.5
-
-    # Rage gauge (formerly apology gauge)
-    frame:
-        xalign 0.5
-        ypos 500
-        xsize 620
-        ysize 56
-        background Solid("#1a1a2e")
-        xpadding 12
-        ypadding 8
-
-        vbox:
-            spacing 4
-
-            hbox:
-                xfill True
-                text "Rage Gauge" size 13 color "#aaaaaa"
-                text "[rage_gauge]%%" size 13 color "#ffffff" xalign 1.0
-
-            frame:
-                xfill True
-                ysize 18
-                background Solid("#2a2a3e")
-
-                frame:
-                    xsize max(2, int(5.96 * rage_gauge))
-                    ysize 18
-                    background Solid(get_apple_color())
-
-    # Talk to her + Done buttons
-    vbox:
-        xalign 0.5
-        yalign 0.88
-        spacing 12
-        xsize 700
+        xfill True
+        ysize 80
+        ypos 0
+        background Solid("#00000099")
+        padding (24, 16)
 
         hbox:
-            xalign 0.5
-            spacing 20
+            xfill True
+            spacing 16
+            yalign 0.5
 
-            textbutton "Talk to her":
-                xsize 200
-                ysize 65
-                xpadding 10
-                background Solid("#2a5e2a")
-                hover_background Solid("#3a7e3a")
-                text_size 20
-                text_color "#ffffff"
-                text_xalign 0.5
-                action RunTrackerAction()
+            # Name badge
+            frame:
+                background Solid("#00000044")
+                padding (14, 8)
+                yalign 0.5
+                text "Girlfriend" size 18 color "#ffffff" bold True
 
-            textbutton "Done":
-                xsize 200
-                ysize 65
-                xpadding 10
-                background Solid("#2a3a5e")
-                hover_background Solid("#3a4a7e")
-                text_size 20
-                text_color "#ffffff"
-                text_xalign 0.5
-                action Return("great")
+            null width 20
 
-            textbutton "End to Response":
-                xsize 200
-                ysize 65
-                xpadding 10
-                background Solid("#4e1e1e")
-                hover_background Solid("#6e2e2e")
-                text_size 20
-                text_color "#ffffff"
-                text_xalign 0.5
-                action [Function(stop_and_apply_smile_rage), Return("end_response")]
+            # Call timer (like FaceTime)
+            frame:
+                background Solid("#00000044")
+                padding (12, 6)
+                yalign 0.5
+                text "[format_videocall_duration()]" size 16 color "#88ff88" outlines [(1, "#00000088", 0, 0)]
 
-    # [임시] 분노게이지 100으로 채워서 바로 check_rescue 테스트
+            # Connection indicator
+            frame:
+                xalign 1.0
+                background None
+                yalign 0.5
+                hbox:
+                    spacing 6
+                    text "●" size 12 color "#44ff44"
+                    text "Live" size 12 color "#aaaaaa"
+
+    # Bottom control bar - semi-transparent
+    frame:
+        xalign 0.5
+        yalign 1.0
+        xsize 900
+        ysize 220
+        background Solid("#000000dd")
+        padding (28, 24)
+
+        vbox:
+            xfill True
+            spacing 16
+
+            # Rage gauge (discreet label)
+            hbox:
+                xfill True
+                text "Her patience" size 13 color "#aaaaaa"
+                text "[rage_gauge]%" size 13 color "#ffffff" xalign 1.0
+
+            frame:
+                xfill True
+                ysize 10
+                background Solid("#2a2a3e88")
+                padding (0, 0)
+                frame:
+                    xsize max(4, int(8.5 * rage_gauge))
+                    ysize 10
+                    background Solid(get_apple_color())
+                    padding (0, 0)
+
+            null height 8
+
+            # Guidance
+            text "Be careful with your facial expression, tone, and word choice when you apologize.":
+                xalign 0.5
+                size 15
+                color "#ccccccaa"
+
+            # Control buttons - pill style
+            hbox:
+                xalign 0.5
+                spacing 24
+
+                textbutton "Talk to her":
+                    xsize 180
+                    ysize 56
+                    background Solid("#2a5e2a99")
+                    hover_background Solid("#3a7e3acc")
+                    selected_background Solid("#3a7e3a")
+                    text_size 18
+                    text_color "#ffffff"
+                    text_xalign 0.5
+                    action RunTrackerAction()
+
+                textbutton "Done":
+                    xsize 180
+                    ysize 56
+                    background Solid("#2a3a5e99")
+                    hover_background Solid("#3a4a7ecc")
+                    selected_background Solid("#3a4a7e")
+                    text_size 18
+                    text_color "#ffffff"
+                    text_xalign 0.5
+                    action Return("great")
+
+                textbutton "End call":
+                    xsize 180
+                    ysize 56
+                    background Solid("#5e2a2a99")
+                    hover_background Solid("#7e3a3acc")
+                    selected_background Solid("#7e3a3a")
+                    text_size 18
+                    text_color "#ffffff"
+                    text_xalign 0.5
+                    action [Function(stop_and_apply_smile_rage), Return("end_response")]
+
+    # [DEBUG] 분노100 테스트
     textbutton "[[DEBUG]] 분노100":
         xalign 0.98
         yalign 0.02
         xpadding 10
         ypadding 4
-        background Solid("#5e2e5e")
-        hover_background Solid("#7e4e7e")
+        background Solid("#5e2e5e88")
+        hover_background Solid("#7e4e7ecc")
         text_size 14
         text_color "#ffcccc"
         action [SetVariable("rage_gauge", 100), Return("end_response")]
+
+    # Call timer tick + idle tick
+    timer 1.0 repeat True action [
+        SetVariable("videocall_duration", videocall_duration + 1),
+        SetVariable("idle_seconds", idle_seconds + 1)
+    ]
+    if idle_seconds >= 30:
+        timer 0.1 action [SetVariable("idle_seconds", 0), Return("idle_warning")]
 
 
 ################################################################################

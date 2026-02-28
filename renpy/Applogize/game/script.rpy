@@ -7,6 +7,7 @@
 default energy = 20
 default max_energy = 20
 default rage_gauge = 70
+default idle_seconds = 0
 default stage = 0
 default player_gender = None
 default found_clues = set()
@@ -25,6 +26,7 @@ default server_guess_result = None  # True/False/None after submit
 default heart_rescue_success = False  # True if heart detected in grab-one-last-chance flow
 default voice_emotions = {}  # emotion dict from /analyze, forwarded to /check_answer
 default gf_reply = ""  # girlfriend's AI-generated response line from /check_answer
+default videocall_duration = 0  # seconds elapsed during video call (Stage 2)
 
 ## Characters ##################################################################
 
@@ -99,6 +101,11 @@ init python:
         m = seconds // 60
         s = seconds % 60
         return "{:01d}:{:02d}".format(m, s)
+
+    def format_videocall_duration():
+        d = store.videocall_duration
+        m, s = d // 60, d % 60
+        return "{:02d}:{:02d}".format(m, s)
 
     # ---- Voice guess: STT via speechemotionanalysis server POST /analyze (WAV -> transcript) ----
     import urllib.request
@@ -397,30 +404,51 @@ label stage1_phone_loop:
     call screen phone_main_screen
 
     if _return == "make_call":
+        $ idle_seconds = 0
         jump stage1_call
     elif _return == "timeout":
         jump stage1_timeout
+    elif _return == "idle_warning":
+        jump stage1_idle_warning
     else:
+        $ idle_seconds = 0
         jump stage1_phone_loop
+
+label stage1_phone_after_call:
+    call screen phone_main_screen
+
+    if _return == "make_call":
+        $ idle_seconds = 0
+        jump stage1_call_retry
+    elif _return == "timeout":
+        jump stage1_timeout
+    elif _return == "idle_warning":
+        jump stage1_idle_warning
+    else:
+        $ idle_seconds = 0
+        jump stage1_phone_after_call
+
+label stage1_idle_warning:
+    $ rage_gauge = min(100, rage_gauge + 5)
+    $ quick_menu = True
+
+    scene bg_dark
+    show gf angry1 at truecenter
+    with vpunch
+
+    gf "Are you spacing out right now?"
+
+    hide gf
+    with dissolve
+
+    $ quick_menu = False
+    $ idle_seconds = 0
+    jump stage1_phone_loop
 
 label stage1_timeout:
     $ timer_running = False
     jump ending_gameover
 
-label stage1_guess:
-    $ timer_running = False
-    $ guess_text = ""
-    $ voice_status = ""
-    $ voice_error_message = ""
-    call screen voice_guess_screen
-
-    if _return == "correct":
-        jump stage1_correct
-    elif _return == "back_to_phone":
-        $ timer_seconds = max(timer_seconds, 60)
-        jump stage1_phone_loop
-    else:
-        jump stage1_wrong
 
 label stage1_call:
     $ timer_running = False
@@ -442,15 +470,34 @@ label stage1_call:
     phone end call
 
     if _return == "back_to_phone":
-        $ timer_seconds = max(timer_seconds, 60)
-        jump stage1_phone_loop
+        # $ timer_seconds = max(timer_seconds, 60)
+        jump stage1_phone_after_call
+    elif _return == "skip" or voice_status == "ok":
+        jump stage1_correct
+    else:
+        jump stage1_wrong
+
+label stage1_call_retry:
+    $ timer_running = False
+    $ quick_menu = False
+
+    phone call "gf"
+
+    $ start_voice_record()
+
+    call screen call_recording_overlay
+
+    phone end call
+
+    if _return == "back_to_phone":
+        jump stage1_phone_after_call
     elif _return == "skip" or voice_status == "ok":
         jump stage1_correct
     else:
         jump stage1_wrong
 
 label stage1_wrong:
-    $ rage_gauge = min(100, rage_gauge + 20)
+    $ rage_gauge = min(100, rage_gauge + 10)
     $ quick_menu = True
 
     scene bg_dark
@@ -468,25 +515,18 @@ label stage1_wrong:
     hide gf
     with dissolve
     $ quick_menu = False
-    $ timer_seconds = 180
-    jump stage1_phone_loop
+    jump stage1_call_retry
 
 label stage1_correct:
     $ quick_menu = True
 
     scene bg_dark
-    show gf normal at truecenter
+    show gf angry1 at truecenter
     with dissolve
 
-    if gf_reply:
-        gf "[gf_reply]"
-    else:
-        gf "...Yeah."
-        gf "That's why I'm upset."
-        gf "But knowing the reason isn't enough."
-        gf "You need to apologize. For real."
+    gf "You know exactly what you did wrong, and that’s how you apologize?"
 
-    mc "(I figured it out. Now I need to apologize sincerely.)"
+    mc "(I figured it out. Now I need to actually apologize.)"
 
     hide gf
     with dissolve
@@ -500,6 +540,7 @@ label stage2:
     # then give the player a small 10-point forgiveness.
     $ rage_gauge = max(0, rage_gauge - 10)
     $ quick_menu = False
+    $ videocall_duration = 0
 
     scene bg_videocall
     with dissolve
@@ -507,9 +548,6 @@ label stage2:
     $ quick_menu = True
     show gf angry1 at truecenter
 
-    gf "..."
-
-    mc "(Time for a video call apology. I need to mean it...)"
     mc "(Her anger is rising... I need to bring it down!)"
 
     $ quick_menu = False
@@ -533,11 +571,18 @@ label stage2_loop:
         show gf angry2 at truecenter
         with vpunch
         gf "You call that an apology?!"
-    elif result == "end_response":
+    elif result == "idle_warning":
+        $ rage_gauge = min(100, rage_gauge + 5)
         scene bg_videocall
-        show gf angry2 at truecenter
-        with dissolve
-        gf "You were smiling! This is serious!"
+        show gf angry1 at truecenter
+        with vpunch
+        gf "Are you spacing out right now?"
+    elif result == "end_response":
+        if rage_gauge < 100:
+            scene bg_videocall
+            show gf angry2 at truecenter
+            with dissolve
+            gf "You were smiling! This is serious!"
     else:
         # Any non-great, non-bad result still increases rage slightly.
         $ rage_gauge = min(100, rage_gauge + 10)
@@ -580,15 +625,12 @@ label check_rescue:
         scene bg_dark
         with dissolve
 
-        "You've pushed things too far..."
-        "But it's not over yet."
-
         menu:
+            "You've pushed things too far... But it's not over yet."
             "Grab one last chance":
                 mc "(One more shot. I can't mess this up!)"
                 $ quick_menu = False
                 if stage == 1:
-                    $ timer_seconds = 180
                     jump stage1_phone_loop
                 else:
                     $ run_tracker_start()
@@ -597,6 +639,9 @@ label check_rescue:
                     $ stop_and_check_heart()
                     if heart_rescue_success:
                         $ rage_gauge = 30
+                        scene bg_videocall
+                        show gf angry1 at truecenter
+                        with dissolve
                         jump stage2_loop
                     else:
                         $ rage_gauge = 100
