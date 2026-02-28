@@ -138,6 +138,65 @@ init python:
             renpy.notify("Server error. Check URL or try again.")
             return None
 
+    def run_tracker_start():
+        """Start tracker (camera) in background. On macOS uses .app bundle for GUI without Terminal."""
+        import subprocess
+        import os
+        import sys
+        base = renpy.config.basedir
+        tracker_dir = os.path.abspath(os.path.join(base, "..", "..", "backend", "tracker"))
+        tracker_py = os.path.join(tracker_dir, "tracker.py")
+        if not os.path.isfile(tracker_py):
+            gamedir = renpy.config.gamedir
+            tracker_dir = os.path.abspath(os.path.join(gamedir, "..", "..", "..", "backend", "tracker"))
+            tracker_py = os.path.join(tracker_dir, "tracker.py")
+        venv_python = os.path.join(tracker_dir, ".venv", "bin", "python3") if sys.platform != "win32" else os.path.join(tracker_dir, ".venv", "Scripts", "python.exe")
+        if not os.path.isfile(venv_python):
+            venv_python = "python3" if sys.platform != "win32" else "python"
+        try:
+            if sys.platform == "darwin":
+                # macOS: use .app bundle so it runs with full GUI permissions (no Terminal)
+                app_path = os.path.join(tracker_dir, "Tracker.app")
+                macos_dir = os.path.join(app_path, "Contents", "MacOS")
+                launcher_path = os.path.join(macos_dir, "launcher")
+                plist_path = os.path.join(app_path, "Contents", "Info.plist")
+                if not os.path.exists(macos_dir):
+                    os.makedirs(macos_dir)
+                launcher_script = '''#!/bin/bash
+TRACKER_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$TRACKER_DIR"
+exec "$TRACKER_DIR/.venv/bin/python3" tracker.py
+'''
+                with open(launcher_path, "w") as f:
+                    f.write(launcher_script)
+                os.chmod(launcher_path, 0o755)
+                plist_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>launcher</string>
+<key>CFBundleIdentifier</key><string>com.applogize.tracker</string>
+<key>CFBundleName</key><string>Tracker</string>
+<key>LSUIElement</key><true/>
+</dict></plist>
+'''
+                with open(plist_path, "w") as f:
+                    f.write(plist_content)
+                subprocess.Popen(["open", app_path])
+            elif sys.platform == "win32":
+                # Windows: use start to open new window
+                subprocess.Popen(["cmd", "/c", "start", "cmd", "/k", venv_python, tracker_py], cwd=tracker_dir)
+            else:
+                subprocess.Popen([venv_python, tracker_py], cwd=tracker_dir, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            renpy.notify("Camera started. Close the camera window when done.")
+        except Exception as e:
+            renpy.notify("Could not start camera: " + str(e)[:50])
+
+    class RunTrackerAction(renpy.store.Action):
+        """Start tracker (camera) in background."""
+        def __call__(self):
+            run_tracker_start()
+            return None
+
 ################################################################################
 ## Game Flow
 ################################################################################

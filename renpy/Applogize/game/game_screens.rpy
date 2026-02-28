@@ -441,53 +441,38 @@ screen apology_input_screen():
                     background Solid("#ff6b9d")
             text "[energy]/[max_energy]" size 14 color "#aaaaaa"
 
-    # Apology options
+    # Talk to her + Done buttons
     vbox:
         xalign 0.5
         yalign 0.88
         spacing 12
         xsize 700
 
-        text "How will you apologize?" size 22 color "#ffffff" xalign 0.5
-
-        null height 5
-
         hbox:
-            spacing 12
             xalign 0.5
+            spacing 20
 
-            textbutton "Sincere Apology":
-                xsize 210
+            textbutton "Talk to her":
+                xsize 200
                 ysize 65
                 xpadding 10
-                background Solid("#1e4e1e")
-                hover_background Solid("#2e6e2e")
-                text_size 16
+                background Solid("#2a5e2a")
+                hover_background Solid("#3a7e3a")
+                text_size 20
+                text_color "#ffffff"
+                text_xalign 0.5
+                action RunTrackerAction()
+
+            textbutton "Done":
+                xsize 200
+                ysize 65
+                xpadding 10
+                background Solid("#2a3a5e")
+                hover_background Solid("#3a4a7e")
+                text_size 20
                 text_color "#ffffff"
                 text_xalign 0.5
                 action Return("great")
-
-            textbutton "Apology with\nExcuses":
-                xsize 210
-                ysize 65
-                xpadding 10
-                background Solid("#4e4e1e")
-                hover_background Solid("#6e6e2e")
-                text_size 16
-                text_color "#ffffff"
-                text_xalign 0.5
-                action Return("good")
-
-            textbutton "Brush it Off":
-                xsize 210
-                ysize 65
-                xpadding 10
-                background Solid("#4e1e1e")
-                hover_background Solid("#6e2e2e")
-                text_size 16
-                text_color "#ffffff"
-                text_xalign 0.5
-                action Return("bad")
 
 
 ################################################################################
