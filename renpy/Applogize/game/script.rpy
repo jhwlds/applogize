@@ -16,6 +16,14 @@ default timer_running = False
 default gf_anger_level = 0
 default rescue_used = False
 
+## Voice guess / server (Stage 1)
+## Answer is fixed on the server: you decide correct/incorrect there.
+## Client: POST JSON {"answer": "user text"} -> Server: JSON {"correct": true} or {"correct": false}
+default answer_check_url = "http://localhost:8000/check_answer"
+default guess_text = ""
+default voice_status = ""  # "", "recording", "ok", "error"
+default server_guess_result = None  # True/False/None after submit
+
 ## Characters ##################################################################
 
 define gf = Character("Girlfriend", color="#ff6b9d", what_color="#ffffff")
@@ -64,6 +72,72 @@ init python:
         s = seconds % 60
         return "{:01d}:{:02d}".format(m, s)
 
+    # ---- Voice guess: send answer text to server, get correct/incorrect ----
+    import urllib.request
+    import urllib.error
+    import json
+
+    def submit_answer_to_server(text):
+        """POST store.guess_text to answer_check_url. Returns True/False/None (None = error)."""
+        url = store.answer_check_url
+        if not url or not str(text).strip():
+            return None
+        try:
+            data = json.dumps({"answer": str(text).strip()}).encode("utf-8")
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+                return bool(body.get("correct", False))
+        except Exception:
+            return None
+
+    def _record_and_stt_worker():
+        """Runs in background thread: record mic -> STT -> set store.guess_text + store.voice_status.
+        Requires: pip install SpeechRecognition pyaudio (and system mic). If not installed, Record shows error."""
+        try:
+            import speech_recognition as sr
+            r = sr.Recognizer()
+            with sr.Microphone() as source:
+                # Optional: adjust for ambient noise (short delay)
+                r.adjust_for_ambient_noise(source, duration=0.5)
+                audio = r.record(source, duration=6)
+            text = r.recognize_google(audio, language="en-US")
+            text = (text or "").strip()
+            def set_result():
+                store.guess_text = text
+                store.voice_status = "ok" if text else "error"
+            renpy.invoke_in_main_thread(set_result)
+        except Exception as e:
+            err = str(e)[:80]
+            def set_err():
+                store.voice_status = "error"
+                store.guess_text = store.guess_text  # no change to text
+            renpy.invoke_in_main_thread(set_err)
+
+    def start_voice_record():
+        """Start recording in a thread; UI shows status via store.voice_status."""
+        import threading
+        store.voice_status = "recording"
+        t = threading.Thread(target=_record_and_stt_worker)
+        t.daemon = True
+        t.start()
+
+    class SubmitGuessAction(renpy.store.Action):
+        """Submit current guess_text to server and return Return('correct') or Return('wrong') or notify error."""
+        def __call__(self):
+            r = submit_answer_to_server(store.guess_text)
+            if r is True:
+                return renpy.store.Return("correct")
+            if r is False:
+                return renpy.store.Return("wrong")
+            renpy.notify("Server error. Check URL or try again.")
+            return None
+
 ################################################################################
 ## Game Flow
 ################################################################################
@@ -77,7 +151,8 @@ label start:
     call screen character_select_screen
     $ player_gender = _return
 
-    call screen intro_video_screen
+    # Intro video (click or key to skip). Use .mkv with Opus audio; Ren'Py does not support AAC.
+    $ renpy.movie_cutscene("video/intro_video.mkv", stop_music=True)
 
     jump stage1
 
@@ -145,7 +220,9 @@ label stage1_timeout:
 
 label stage1_guess:
     $ timer_running = False
-    call screen guess_reason_screen
+    $ guess_text = ""
+    $ voice_status = ""
+    call screen voice_guess_screen
 
     if _return == "correct":
         jump stage1_correct

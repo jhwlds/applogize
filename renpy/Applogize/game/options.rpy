@@ -1,4 +1,4 @@
-﻿## This file contains options that can be changed to customize your game.
+## This file contains options that can be changed to customize your game.
 ##
 ## Lines beginning with two '#' marks are comments, and you shouldn't uncomment
 ## them. Lines beginning with a single '#' mark are commented-out code, and you
@@ -49,6 +49,12 @@ define build.name = "Applogize"
 define config.has_sound = True
 define config.has_music = True
 define config.has_voice = True
+
+## Register movie channel so video audio plays (uses "sound" mixer = Sound Volume in preferences)
+## If still no sound: Ren'Py does not support AAC in MP4 on desktop. Use Opus/Vorbis/MP3 (e.g. WebM with VP9+Opus).
+init python:
+    renpy.music.register_channel("movie", "sound", loop=False)
+    renpy.music.register_channel("movie_intro", "sound", loop=False)
 
 
 ## To allow the user to play a test sound on the sound or voice channel,
