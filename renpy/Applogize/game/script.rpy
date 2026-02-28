@@ -176,7 +176,7 @@ label start:
 
 label stage1:
     $ stage = 1
-    $ timer_seconds = 5
+    $ timer_seconds = 180
     $ timer_running = True
     $ found_clues = set()
     $ gf_anger_level = 0
