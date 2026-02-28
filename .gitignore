@@ -6,6 +6,8 @@ package-lock.json
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
 *$py.class
 *.so
 .Python
@@ -18,3 +20,14 @@ pip-delete-this-directory.txt
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Environment variables
+speechemotionanalysis/.env
+
+# Runtime uploads
+speechemotionanalysis/uploads/
+
+# OS / Editor
+Thumbs.db
+.vscode/
+.idea/
