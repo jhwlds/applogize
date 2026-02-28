@@ -47,6 +47,7 @@ image bg_videocall = Solid("#0f0f23")
 image gf normal = "images/characters/idle_pose.png"
 image gf angry1 = "images/characters/angry_face1.png"
 image gf angry2 = "images/characters/angry_face2.png"
+image gf videocall = "images/characters/video_call1.jpg"
 
 image firegirl = "images/characters/firegirl.jpeg"
 image semifire = "images/characters/semifire.jpeg"
@@ -652,7 +653,7 @@ label stage1_correct:
     with dissolve
     jump stage2
 
-## Stage 2 - Apologize ##########################################################
+## Stage 2 - Apologize (Phone Video Call UI) #####################################
 
 label stage2:
     $ stage = 2
@@ -661,14 +662,14 @@ label stage2:
     $ rage_gauge = max(0, rage_gauge - 10)
     $ quick_menu = False
     $ videocall_duration = 0
+    $ idle_seconds = 0
 
-    scene bg_videocall
-    with dissolve
+    # 캐릭터를 비디오콜 레이어에 표시 후 영상통화 시작
+    show gf videocall onlayer phone_video_call
+    phone call "gf" video
 
     $ quick_menu = True
-    show gf angry1 at truecenter
-
-    mc "(Her anger is rising... I need to bring it down!)"
+    phone_mc "(Her anger is rising... I need to bring it down!)"
 
     $ quick_menu = False
 
@@ -680,34 +681,40 @@ label stage2_loop:
 
     if result == "great":
         $ rage_gauge = max(0, rage_gauge - 10)
-        scene bg_videocall
-        show gf normal at truecenter
+        show gf videocall onlayer phone_video_call
         with dissolve
-        gf "...Took you long enough to actually apologize properly."
+        phone_gf "...Took you long enough to actually apologize properly."
+        phone end call
+        scene onlayer phone_video_call
         jump stage2_success
     elif result == "bad":
         $ rage_gauge = min(100, rage_gauge + 10)
-        scene bg_videocall
-        show gf angry2 at truecenter
+        show gf videocall onlayer phone_video_call
         with vpunch
-        gf "You call that an apology?!"
+        phone_gf "You call that an apology?!"
+    elif result == "idle_warning":
+        $ rage_gauge = min(100, rage_gauge + 5)
+        show gf videocall onlayer phone_video_call
+        with vpunch
+        phone_gf "Are you spacing out right now?"
     elif result == "end_response":
         if rage_gauge < 100:
-            scene bg_videocall
-            show gf angry2 at truecenter
+            show gf videocall onlayer phone_video_call
             with dissolve
             if last_smile_count > 0:
-                gf "You were smiling! This is serious!"
+                phone_gf "You were smiling! This is serious!"
             else:
-                gf "Why did you hang up? We weren't done talking."
+                phone_gf "Why did you hang up? We weren't done talking."
     else:
         # Any non-great, non-bad result still increases rage slightly.
         $ rage_gauge = min(100, rage_gauge + 10)
-        gf "...This isn't good enough."
+        phone_gf "...This isn't good enough."
 
     $ quick_menu = False
 
     if rage_gauge >= 100:
+        phone end call
+        scene onlayer phone_video_call
         jump check_rescue
     else:
         jump stage2_loop
@@ -771,10 +778,8 @@ label check_rescue:
                     $ rescue_used = True
                     $ in_rescue_mission = False
                     $ rage_gauge = 70
-                    scene bg_videocall
-                    with dissolve
-                    show gf angry1 at truecenter
-                    with dissolve
+                    show gf videocall onlayer phone_video_call
+                    phone call "gf" video
                     jump stage2_loop
                 else:
                     $ in_rescue_mission = False

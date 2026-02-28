@@ -62,3 +62,31 @@ label phone_call_test:
     "..."
 
     return
+
+## ── Video Call Example ────────────────────────────────────────────────────────
+## phone_video_call 레이어에 캐릭터를 먼저 올려야 상대방 "카메라 화면"으로 표시됨.
+## video=True 는 Ren'Py 7.6 / 8.1 이상에서만 실제 영상통화 UI를 사용하고,
+## 구버전에서는 자동으로 일반 통화 UI로 fallback 됨.
+
+label phone_video_call_test:
+    # 1. 상대방 카메라 피드 - 전용 레이어에 캐릭터 표시
+    show gf angry1 onlayer phone_video_call
+
+    # 2. 영상통화 시작 (video 키워드만 지정, 값 없음)
+    phone call "gf" video
+
+    phone_gf "..."
+    phone_gf "Why are you calling me on video right now?"
+    phone_mc "I wanted you to see my face when I say this."
+    phone_mc "I'm sorry. I really am."
+    phone_gf "..."
+    phone_gf "You look terrible, by the way."
+    phone_mc "Yeah. I haven't slept."
+
+    # 3. 통화 종료
+    phone end call
+
+    # 4. 레이어 정리 (다음 씬에 영향 없도록)
+    scene onlayer phone_video_call
+
+    return

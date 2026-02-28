@@ -513,124 +513,102 @@ screen guess_reason_screen():
 
 
 ################################################################################
-## Apology Input Screen (Stage 2) - FaceTime/Zoom-style Video Call UI
+## Apology Input Screen (Stage 2) - Phone Video Call 우측 패널
+## phone call "gf" video 사용 시, 왼쪽에 전화기 프레임·비디오 피드가 보이고
+## 오른쪽에 이 컨트롤 패널이 오버레이됨.
 ################################################################################
 
 screen apology_input_screen():
     modal True
 
-    # Scene (bg_videocall + gf) shows through as the "video feed" - no full cover
-    # Top bar - FaceTime-style: name + call timer
+    # 우측 패널 (Stage 1 call_recording_overlay와 동일 레이아웃)
     frame:
-        xfill True
-        ysize 80
-        ypos 0
-        background Solid("#00000099")
-        padding (24, 16)
-
-        hbox:
-            xfill True
-            spacing 16
-            yalign 0.5
-
-            # Name badge
-            frame:
-                background Solid("#00000044")
-                padding (14, 8)
-                yalign 0.5
-                text "Girlfriend" size 18 color "#ffffff" bold True
-
-            null width 20
-
-            # Call timer (like FaceTime)
-            frame:
-                background Solid("#00000044")
-                padding (12, 6)
-                yalign 0.5
-                text "[format_videocall_duration()]" size 16 color "#88ff88" outlines [(1, "#00000088", 0, 0)]
-
-            # Connection indicator
-            frame:
-                xalign 1.0
-                background None
-                yalign 0.5
-                hbox:
-                    spacing 6
-                    text "●" size 12 color "#44ff44"
-                    text "Live" size 12 color "#aaaaaa"
-
-    # Bottom control bar - semi-transparent
-    frame:
-        xalign 0.5
-        yalign 1.0
-        xsize 900
-        ysize 220
-        background Solid("#000000dd")
-        padding (28, 24)
+        xalign 0.97
+        yalign 0.5
+        xsize 420
+        ypadding 28
+        xpadding 22
+        background Frame(Solid("#0e0e1eee"), 8, 8)
 
         vbox:
+            spacing 18
             xfill True
-            spacing 16
 
-            # Rage gauge (discreet label)
+            # 헤더 + 통화 시간
+            hbox:
+                xfill True
+                yalign 0.5
+                text "Video call..." size 18 color "#ff6b9d" bold True
+                frame:
+                    xalign 1.0
+                    yalign 0.5
+                    xpadding 10
+                    ypadding 4
+                    background Solid("#2a2a3e")
+                    text "[format_videocall_duration()]" size 16 color "#88ff88" bold True
+
+            # Rage gauge
             hbox:
                 xfill True
                 text "Her patience" size 13 color "#aaaaaa"
                 text "[rage_gauge]%" size 13 color "#ffffff" xalign 1.0
 
             frame:
-                xfill True
-                ysize 10
-                background Solid("#2a2a3e88")
+                xsize 376
+                ysize 8
+                background Solid("#2a2a3e")
                 padding (0, 0)
                 frame:
-                    xsize max(4, int(8.5 * rage_gauge))
-                    ysize 10
+                    xsize max(4, int(376 * rage_gauge / 100.0))
+                    ysize 8
                     background Solid(get_apple_color())
                     padding (0, 0)
 
+            null height 4
+
+            # 가이드
+            text "Be careful with your facial expression, tone, and word choice when you apologize.":
+                size 12
+                color "#888888"
+                text_align 0.5
+                xalign 0.5
+
             null height 8
 
-            # Guidance
-            text "Be careful with your facial expression, tone, and word choice when you apologize.":
-                xalign 0.5
-                size 15
-                color "#ccccccaa"
-
-            # Control buttons - pill style
-            hbox:
-                xalign 0.5
-                spacing 24
+            # 컨트롤 버튼
+            vbox:
+                spacing 12
+                xfill True
 
                 textbutton "Talk to her":
-                    xsize 180
-                    ysize 56
-                    background Solid("#2a5e2a99")
-                    hover_background Solid("#3a7e3acc")
-                    selected_background Solid("#3a7e3a")
-                    text_size 18
+                    xfill True
+                    xsize 376
+                    ysize 50
+                    background Solid("#2a5e2a")
+                    hover_background Solid("#3a8a3a")
+                    text_size 16
                     text_color "#ffffff"
                     text_xalign 0.5
                     action RunTrackerAction()
 
                 textbutton "Done":
-                    xsize 180
-                    ysize 56
-                    background Solid("#2a3a5e99")
-                    hover_background Solid("#3a4a7ecc")
-                    selected_background Solid("#3a4a7e")
-                    text_size 18
+                    xfill True
+                    xsize 376
+                    ysize 50
+                    background Solid("#2a3a5e")
+                    hover_background Solid("#3a4a7e")
+                    text_size 16
                     text_color "#ffffff"
                     text_xalign 0.5
                     action Return("great")
 
                 textbutton "End call":
-                    xsize 180
-                    ysize 56
-                    background Solid("#5e2a2a99")
-                    hover_background Solid("#7e3a3acc")
-                    selected_background Solid("#7e3a3a")
-                    text_size 18
+                    xfill True
+                    xsize 376
+                    ysize 50
+                    background Solid("#cc2222")
+                    hover_background Solid("#ee3333")
+                    text_size 16
                     text_color "#ffffff"
                     text_xalign 0.5
                     action [Function(stop_and_apply_smile_rage), Return("end_response")]
@@ -647,8 +625,13 @@ screen apology_input_screen():
         text_color "#ffcccc"
         action [SetVariable("rage_gauge", 100), Return("end_response")]
 
-    # Call timer tick (Stage 2: no idle warning, only videocall duration)
-    timer 1.0 repeat True action SetVariable("videocall_duration", videocall_duration + 1)
+    # 타이머: videocall_duration + idle_seconds (idle 30초 시 경고)
+    timer 1.0 repeat True action [
+        SetVariable("videocall_duration", videocall_duration + 1),
+        SetVariable("idle_seconds", idle_seconds + 1)
+    ]
+    if idle_seconds >= 30:
+        timer 0.1 action [SetVariable("idle_seconds", 0), Return("idle_warning")]
 
 
 ################################################################################
