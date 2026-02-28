@@ -6,14 +6,13 @@
 
 default energy = 20
 default max_energy = 20
-default rage_gauge = 50
+default rage_gauge = 70
 default stage = 0
 default player_gender = None
 default found_clues = set()
 default total_clues = 8
 default timer_seconds = 180
 default timer_running = False
-default gf_anger_level = 0
 default rescue_used = False
 
 ## Voice guess (Stage 1) – STT via speechemotionanalysis server /analyze; answer check via server
@@ -48,11 +47,27 @@ image badending = Transform(
     ysize=config.screen_height,
 )
 
+image goldengirl = "images/characters/goldengirl.jpeg"
+image happyending = Transform(
+    "images/characters/happyending.jpeg",
+    xsize=config.screen_width,
+    ysize=config.screen_height,
+)
+
 screen bad_ending_title():
     zorder 100
     text "GAME OVER":
         xalign 0.02
         yalign 0.95
+        size 80
+        color "#ffffff"
+        outlines [(4, "#000000", 0, 0)]
+
+screen clear_title():
+    zorder 100
+    text "CLEAR":
+        xalign 0.5
+        yalign 0.2
         size 80
         color "#ffffff"
         outlines [(4, "#000000", 0, 0)]
@@ -64,27 +79,19 @@ init python:
         store.found_clues = store.found_clues | {clue_name}
 
     def get_apple_color():
-        if store.stage == 1:
-            if store.gf_anger_level >= 3:
-                return "#990000"
-            elif store.gf_anger_level >= 1:
-                return "#cc3333"
-            else:
-                return "#ff6666"
+        g = store.rage_gauge
+        # In Stage 1 and 2, rage_gauge represents anger:
+        # 0 = calm, 100 = maximum anger.
+        if g <= 0:
+            return "#ffd700"   # calm / best state
+        elif g <= 25:
+            return "#88cc33"
+        elif g <= 50:
+            return "#33cc33"
+        elif g <= 75:
+            return "#ff6666"
         else:
-            g = store.rage_gauge
-            # In Stage 2, rage_gauge represents anger:
-            # 0 = calm, 100 = maximum anger.
-            if g <= 0:
-                return "#ffd700"   # calm / best state
-            elif g <= 25:
-                return "#88cc33"
-            elif g <= 50:
-                return "#33cc33"
-            elif g <= 75:
-                return "#ff6666"
-            else:
-                return "#cc3333"   # very angry
+            return "#cc3333"   # very angry
 
     def format_timer(seconds):
         m = seconds // 60
@@ -191,8 +198,17 @@ init python:
         t.start()
 
     class ContinueGuessAction(renpy.store.Action):
-        """Proceed without server check (STT only)."""
+        """Proceed after STT finished; block if still recording."""
         def __call__(self):
+            # If voice recording/STT is still running, keep the screen open
+            # so the player can see the final transcript once it arrives.
+            if store.voice_status == "recording":
+                try:
+                    renpy.notify("Still analyzing voice... please wait.")
+                except Exception:
+                    pass
+                return None
+
             return renpy.store.Return("correct")
 
     class SubmitGuessAction(renpy.store.Action):
@@ -360,6 +376,8 @@ label start:
     # Intro video (click or key to skip). Use .mkv with Opus audio; Ren'Py does not support AAC.
     $ renpy.movie_cutscene("video/intro_video.mkv", stop_music=True)
 
+    $ renpy.movie_cutscene("video/we_are_done.mkv", stop_music=True)
+
     jump stage1
 
 ## Stage 1 - Find the Reason ###################################################
@@ -369,23 +387,15 @@ label stage1:
     $ timer_seconds = 180
     $ timer_running = True
     $ found_clues = set()
-    $ gf_anger_level = 0
+    $ rage_gauge = 70
 
     scene bg_dark
     with dissolve
 
     $ quick_menu = True
-    show gf normal at truecenter
-    with dissolve
-
-    gf "..."
-    gf "You really don't know? You have no idea why I'm upset?"
 
     mc "(What did I do wrong...?)"
     mc "(Let me check my phone for clues.)"
-
-    hide gf
-    with dissolve
 
     $ quick_menu = False
 
@@ -393,8 +403,8 @@ label stage1_phone_loop:
     $ timer_running = True
     call screen phone_main_screen
 
-    if _return == "make_guess":
-        jump stage1_guess
+    if _return == "make_call":
+        jump stage1_call
     elif _return == "timeout":
         jump stage1_timeout
     else:
@@ -419,20 +429,43 @@ label stage1_guess:
     else:
         jump stage1_wrong
 
+label stage1_call:
+    $ timer_running = False
+    $ guess_text = ""
+    $ voice_status = ""
+    $ voice_error_message = ""
+    $ quick_menu = False
+
+    phone call "gf"
+    phone_gf "..."
+    phone_gf "Why are you calling me right now?"
+    phone_mc "I know you're upset. I want to explain."
+    phone_gf "Fine. Tell me — why do you think I'm angry?"
+
+    $ start_voice_record()
+
+    call screen call_recording_overlay
+
+    phone end call
+
+    if _return == "back_to_phone":
+        $ timer_seconds = max(timer_seconds, 60)
+        jump stage1_phone_loop
+    elif voice_status == "ok":
+        jump stage1_correct
+    else:
+        jump stage1_wrong
+
 label stage1_wrong:
-    $ energy -= 10
-    $ gf_anger_level += 1
+    $ rage_gauge = min(100, rage_gauge + 20)
     $ quick_menu = True
 
     scene bg_dark
     show gf angry1 at truecenter
     with vpunch
 
-    gf "That's not it!"
-    gf "Are you serious right now?"
-
-    if energy <= 0:
-        jump check_rescue
+    gf "That's not it at all."
+    gf "Are you even trying right now?"
 
     mc "(No, that wasn't it... Let me think again.)"
 
@@ -464,7 +497,9 @@ label stage1_correct:
 
 label stage2:
     $ stage = 2
-    $ rage_gauge = 50
+    # Carry over anger from Stage 1: start from current rage_gauge,
+    # then give the player a small 10-point forgiveness.
+    $ rage_gauge = max(0, rage_gauge - 10)
     $ quick_menu = False
 
     scene bg_videocall
@@ -487,20 +522,14 @@ label stage2_loop:
     $ quick_menu = True
 
     if result == "great":
-        $ rage_gauge = max(0, rage_gauge - 25)
+        $ rage_gauge = max(0, rage_gauge - 10)
         scene bg_videocall
         show gf normal at truecenter
         with dissolve
-        gf "...Keep going."
-    elif result == "good":
-        $ rage_gauge = max(0, rage_gauge - 15)
-        scene bg_videocall
-        show gf normal at truecenter
-        with dissolve
-        gf "..."
+        gf "...Took you long enough to actually apologize properly."
+        jump stage2_success
     elif result == "bad":
-        $ rage_gauge = min(100, rage_gauge + 20)
-        $ energy -= 5
+        $ rage_gauge = min(100, rage_gauge + 10)
         scene bg_videocall
         show gf angry2 at truecenter
         with vpunch
@@ -511,14 +540,13 @@ label stage2_loop:
         with dissolve
         gf "You were smiling! This is serious!"
     else:
-        $ rage_gauge = min(100, rage_gauge + 5)
-        gf "..."
+        # Any non-great, non-bad result still increases rage slightly.
+        $ rage_gauge = min(100, rage_gauge + 10)
+        gf "...This isn't good enough."
 
     $ quick_menu = False
 
-    if rage_gauge <= 0:
-        jump stage2_success
-    elif rage_gauge >= 100 or energy <= 0:
+    if rage_gauge >= 100:
         jump check_rescue
     else:
         jump stage2_loop
@@ -527,7 +555,7 @@ label stage2_success:
     $ quick_menu = True
 
     scene bg_videocall
-    show gf normal at truecenter
+    show goldengirl at truecenter
     with dissolve
 
     gf "...Okay."
@@ -553,13 +581,11 @@ label check_rescue:
         scene bg_dark
         with dissolve
 
-        "Your energy has hit rock bottom..."
+        "You've pushed things too far..."
         "But it's not over yet."
 
         menu:
             "Grab one last chance":
-                $ energy = 10
-                $ gf_anger_level = max(0, gf_anger_level - 1)
                 mc "(One more shot. I can't mess this up!)"
                 $ quick_menu = False
                 if stage == 1:
@@ -608,6 +634,11 @@ label ending_clear:
 
     scene bg_black
     with fade
+    scene happyending
+    with fade
+    show screen clear_title
+    pause
+    hide screen clear_title
 
     call screen ending_clear_screen
     return

@@ -238,6 +238,105 @@ screen voice_guess_screen():
 
 
 ################################################################################
+## Call Recording Overlay (Stage 1) - shown during phone call, auto-starts STT
+################################################################################
+
+screen call_recording_overlay():
+    modal True
+
+    # Right-side panel (phone_call screen occupies the left ~40%)
+    frame:
+        xalign 0.97
+        yalign 0.5
+        xsize 420
+        ypadding 28
+        xpadding 22
+        background Frame(Solid("#0e0e1eee"), 8, 8)
+
+        vbox:
+            spacing 18
+            xfill True
+
+            text "On the phone..." size 18 color "#ff6b9d" xalign 0.5 bold True
+
+            # Recording status indicator
+            frame:
+                xfill True
+                ypadding 14
+                xpadding 14
+                background Solid("#12121e")
+
+                vbox:
+                    spacing 8
+                    xfill True
+
+                    if voice_status == "recording":
+                        hbox:
+                            xalign 0.5
+                            spacing 8
+                            text "●" size 20 color "#ffaa00"
+                            text "Recording..." size 18 color "#ffaa00"
+                        text "Speak into the microphone now." size 13 color "#888888" xalign 0.5
+
+                    elif voice_status == "ok":
+                        hbox:
+                            xalign 0.5
+                            spacing 8
+                            text "●" size 20 color "#44ff44"
+                            text "Voice captured" size 18 color "#44ff44"
+                        if guess_text:
+                            null height 4
+                            frame:
+                                xfill True
+                                background Solid("#1a2a1a")
+                                xpadding 10
+                                ypadding 8
+                                text "[guess_text]" size 14 color "#cccccc" text_align 0.0
+
+                    elif voice_status == "error":
+                        hbox:
+                            xalign 0.5
+                            spacing 8
+                            text "●" size 20 color "#ff4444"
+                            text "Recording failed" size 18 color "#ff4444"
+                        if voice_error_message:
+                            text "[voice_error_message]" size 11 color "#ffaa66" xalign 0.5 text_align 0.5
+
+                    else:
+                        text "Connecting..." size 18 color "#888888" xalign 0.5
+
+            null height 4
+
+            # Hang Up button
+            frame:
+                xalign 0.5
+                background None
+
+                textbutton "🔴  Hang Up":
+                    xsize 200
+                    ysize 60
+                    xpadding 14
+                    background Solid("#cc0000")
+                    hover_background Solid("#ee2222")
+                    text_size 20
+                    text_color "#ffffff"
+                    text_xalign 0.5
+                    action ContinueGuessAction()
+
+            # Cancel / back
+            textbutton "< Cancel call":
+                xalign 0.5
+                text_size 13
+                text_color "#666666"
+                text_hover_color "#aaaaaa"
+                action Return("back_to_phone")
+
+    # Poll every 0.5s while recording so status text updates live
+    if voice_status == "recording":
+        timer 0.5 repeat True action NullAction()
+
+
+################################################################################
 ## Guess Reason Screen (Stage 1) - legacy multiple choice
 ################################################################################
 
