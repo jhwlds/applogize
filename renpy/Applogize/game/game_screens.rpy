@@ -275,14 +275,14 @@ screen call_recording_overlay():
                     background Solid(("#cc2222" if call_remaining <= 5 else "#2a2a3e"))
                     text "[call_remaining]s" size 16 color "#ffffff" bold True
 
-            # Countdown progress bar
+            # Countdown progress bar (376 = panel 420 - xpadding 22*2)
             frame:
-                xfill True
+                xsize 376
                 ysize 6
                 background Solid("#2a2a3e")
 
                 frame:
-                    xsize int(420 * call_remaining / 15.0)
+                    xsize int(376 * call_remaining / 15.0)
                     ysize 6
                     background Solid(("#ff4444" if call_remaining <= 5 else "#44aaff"))
 
