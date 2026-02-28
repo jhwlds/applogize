@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
-"""Record 6 seconds from mic, save to record_temp.wav in current dir. For use with /analyze STT."""
+"""Record up to 15 seconds from mic (or until SIGTERM), save to record_temp.wav."""
+import signal
 import sys
+
+_stop_recording = False
+
+def _handle_stop(sig, frame):
+    global _stop_recording
+    _stop_recording = True
+
+signal.signal(signal.SIGTERM, _handle_stop)
+signal.signal(signal.SIGINT, _handle_stop)
 
 def main():
     try:
@@ -21,11 +31,16 @@ def main():
         stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
         frames = []
         for _ in range(0, int(RATE / CHUNK * SECONDS)):
+            if _stop_recording:
+                break
             data = stream.read(CHUNK, exception_on_overflow=False)
             frames.append(data)
         stream.stop_stream()
         stream.close()
         p.terminate()
+        if not frames:
+            print("ERROR: No audio captured before stop.")
+            sys.exit(1)
         raw = b"".join(frames)
 
         # If input level is low, apply a safe digital gain to help STT.

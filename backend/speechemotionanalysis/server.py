@@ -30,11 +30,7 @@ HUME_JOB_TIMEOUT_SECONDS = 60
 HUME_POLL_INTERVAL_SECONDS = 1
 
 # Story reason for Stage 1 answer evaluation
-CORRECT_REASON = (
-    "The player character forgot the couple's 100-day anniversary (February 28) "
-    "and secretly booked a solo trip to Tokyo on that exact day, "
-    "despite having promised to go together."
-)
+CORRECT_REASON = "She had a dream where her boyfriend cheated on her."
 OPENAI_MODEL = "gpt-4o-mini"
 
 WAV_MIME_TYPES = {
@@ -133,17 +129,27 @@ def check_answer(body: CheckAnswerRequest) -> Dict[str, Any]:
     ) if body.emotions else "N/A"
 
     system_prompt = (
-        "You are the judge of a couples' narrative game. "
-        "Decide whether the player correctly identified the reason for the girlfriend's anger. "
-        "Consider partial or paraphrased answers as correct if the core reason is captured. "
-        "Respond ONLY with a valid JSON object — no markdown, no explanation — in this exact shape:\n"
-        '{"correct": true, "reply": "<girlfriend\'s in-game response line in Korean>"}'
+        "You are the judge of a couples' narrative game.\n\n"
+        "Evaluate whether the player correctly identified the reason for the girlfriend's anger "
+        "based solely on the text content of their answer. Ignore emotion scores.\n\n"
+        "Evaluation rules:\n"
+        "1. The core concept must be present: she had a DREAM in which her boyfriend CHEATED on her.\n"
+        "2. Partial or paraphrased answers are acceptable as long as both elements "
+        "(dream + cheating) are recognizable.\n\n"
+        "Reply rules:\n"
+        "- The 'reply' field MUST be written in ENGLISH.\n"
+        "- Short emotional in-game dialogue spoken BY THE GIRLFRIEND (1-2 sentences, statements only, no questions).\n"
+        "- correct=true tone: hurt but relieved he understood. "
+        
+        "- correct=false tone: dismissive or frustrated. "
+        
+        "Respond ONLY with valid JSON, no markdown:\n"
+        '{"correct": true, "reply": "..."}'
     )
 
     user_message = (
-        f"화가 난 이유: {CORRECT_REASON}\n"
-        f"유저 입력 (음성 인식 텍스트): {body.answer}\n"
-        f"음성 감정 분석: {emotions_str}"
+        f"Correct reason: {CORRECT_REASON}\n"
+        f"Player's answer (speech-to-text): {body.answer}"
     )
 
     print(f"[check_answer] → sending to OpenAI ({OPENAI_MODEL})", flush=True)

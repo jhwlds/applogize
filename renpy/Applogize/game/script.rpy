@@ -26,6 +26,7 @@ default server_guess_result = None  # True/False/None after submit
 default heart_rescue_success = False  # True if heart detected in grab-one-last-chance flow
 default voice_emotions = {}  # emotion dict from /analyze, forwarded to /check_answer
 default gf_reply = ""  # girlfriend's AI-generated response line from /check_answer
+default _call_overlay_result = ""  # "correct"/"wrong"/"back_to_phone"/"skip", read by call_recording_overlay timer
 default videocall_duration = 0  # seconds elapsed during video call (Stage 2)
 
 ## Characters ##################################################################
@@ -113,6 +114,9 @@ init python:
     import json
     import subprocess
     import os
+    import signal as _signal
+
+    _record_proc = None  # active recording Popen object, set by worker
 
     def _record_and_stt_worker():
         """Record WAV via script, POST to analyze_url, set guess_text from transcript."""
@@ -120,17 +124,33 @@ init python:
         wav_path = os.path.join(script_dir, "record_temp.wav")
         record_script = os.path.join(script_dir, "record_to_wav.py")
         url = store.analyze_url
+        print(f"[STT worker] START  script_dir={script_dir!r}", flush=True)
+        print(f"[STT worker]   record_script={record_script!r}  exists={os.path.isfile(record_script)}", flush=True)
+        print(f"[STT worker]   analyze_url={url!r}", flush=True)
         try:
-            proc = subprocess.run(
+            print("[STT worker] → running record_to_wav.py ...", flush=True)
+            proc = subprocess.Popen(
                 ["python3", record_script],
-                capture_output=True,
-                text=True,
-                timeout=15,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 cwd=script_dir,
             )
-            out = (proc.stdout or "").strip()
+            store._record_proc = proc
+            try:
+                stdout_b, stderr_b = proc.communicate(timeout=20)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                stdout_b, stderr_b = proc.communicate()
+            store._record_proc = None
+            proc_stdout = (stdout_b or b"").decode("utf-8", errors="replace")
+            proc_stderr = (stderr_b or b"").decode("utf-8", errors="replace")
+            print(f"[STT worker]   returncode={proc.returncode}", flush=True)
+            print(f"[STT worker]   stdout={proc_stdout!r}", flush=True)
+            print(f"[STT worker]   stderr={proc_stderr!r}", flush=True)
+            out = proc_stdout.strip()
             if out.startswith("ERROR:") or proc.returncode != 0:
                 err = (out[6:].strip().lstrip(" ") if out.startswith("ERROR:") else (proc.stderr or "Recording failed")[:120])[:120]
+                print(f"[STT worker] ✗ record_to_wav.py failed: {err!r}", flush=True)
                 def set_err():
                     store.voice_status = "error"
                     store.voice_error_message = err
@@ -138,6 +158,7 @@ init python:
                 renpy.invoke_in_main_thread(set_err)
                 return
             if not os.path.isfile(wav_path):
+                print(f"[STT worker] ✗ WAV file not created at {wav_path!r}", flush=True)
                 def set_err():
                     store.voice_status = "error"
                     store.voice_error_message = "No WAV file created."
@@ -146,6 +167,8 @@ init python:
                 return
             with open(wav_path, "rb") as f:
                 wav_data = f.read()
+            wav_size = len(wav_data)
+            print(f"[STT worker] WAV loaded: {wav_size} bytes", flush=True)
             boundary = "----RenPyFormBoundary" + str(abs(hash(wav_path)))
             body = (
                 b"--" + boundary.encode() + b"\r\n"
@@ -160,10 +183,13 @@ init python:
                 headers={"Content-Type": "multipart/form-data; boundary=" + boundary},
                 method="POST",
             )
+            print(f"[STT worker] → POST {url} ...", flush=True)
             with urllib.request.urlopen(req, timeout=70) as resp:
                 body_json = json.loads(resp.read().decode("utf-8"))
             transcript = (body_json.get("transcript") or "").strip()
             emotions = body_json.get("emotions") or {}
+            print(f"[STT worker] ← /analyze response  transcript={transcript!r}", flush=True)
+            print(f"[STT worker]   emotions={emotions}", flush=True)
             # Keep wav for debugging; uncomment to clean up:
             # try:
             #     os.remove(wav_path)
@@ -175,12 +201,14 @@ init python:
                 store.voice_status = "ok" if transcript else "error"
             renpy.invoke_in_main_thread(set_result)
         except subprocess.TimeoutExpired:
+            print("[STT worker] ✗ TimeoutExpired (record_to_wav.py)", flush=True)
             def set_err():
                 store.voice_status = "error"
                 store.voice_error_message = "Recording timed out."
                 store.guess_text = store.guess_text
             renpy.invoke_in_main_thread(set_err)
-        except FileNotFoundError:
+        except FileNotFoundError as e:
+            print(f"[STT worker] ✗ FileNotFoundError: {e}", flush=True)
             def set_err():
                 store.voice_status = "error"
                 store.voice_error_message = "python3 or record_to_wav.py not found. Install Python 3 and pyaudio."
@@ -188,6 +216,7 @@ init python:
             renpy.invoke_in_main_thread(set_err)
         except Exception as e:
             err = str(e)[:120]
+            print(f"[STT worker] ✗ Exception: {err}", flush=True)
             def set_err():
                 store.voice_status = "error"
                 store.voice_error_message = err
@@ -209,22 +238,32 @@ init python:
         t.start()
 
     class ContinueGuessAction(renpy.store.Action):
-        """Proceed after STT finished; block if still recording."""
+        """Hang Up: stop recording early via SIGTERM, wait for STT, then POST to /check_answer."""
         def __call__(self):
-            # If voice recording/STT is still running, keep the screen open
-            # so the player can see the final transcript once it arrives.
             if store.voice_status == "recording":
+                # Send SIGTERM to recording subprocess so it saves partial WAV and exits
+                proc = getattr(store, "_record_proc", None)
+                if proc is not None and proc.poll() is None:
+                    print("[HangUp] sending SIGTERM to recording process ...", flush=True)
+                    try:
+                        proc.send_signal(_signal.SIGTERM)
+                    except Exception as e:
+                        print(f"[HangUp] SIGTERM error: {e}", flush=True)
+                else:
+                    print("[HangUp] still recording but proc already done, waiting ...", flush=True)
                 try:
-                    renpy.notify("Still analyzing voice... please wait.")
+                    renpy.notify("Stopping recording...")
                 except Exception:
                     pass
                 return None
 
-            return renpy.store.Return("correct")
+            # No transcript at all (e.g. recording failed) → skip to wrong
+            if not (store.guess_text or "").strip():
+                store._call_overlay_result = "wrong"
+                renpy.restart_interaction()
+                return None
 
-    class SubmitGuessAction(renpy.store.Action):
-        """POST guess_text + emotions to answer_check_url and return correct/wrong."""
-        def __call__(self):
+            print(f"[HangUp] → calling /check_answer  answer={store.guess_text!r}", flush=True)
             try:
                 payload = {
                     "answer": (store.guess_text or "").strip(),
@@ -242,11 +281,47 @@ init python:
                 ok = bool(body.get("correct", False))
                 store.server_guess_result = ok
                 store.gf_reply = (body.get("reply") or "").strip()
+                print(f"[HangUp] ← correct={ok}  reply={store.gf_reply!r}", flush=True)
+                store._call_overlay_result = "correct" if ok else "wrong"
+                renpy.restart_interaction()
+            except Exception as e:
+                err = str(e)[:80]
+                print(f"[HangUp] ✗ check_answer error: {err}", flush=True)
+                store.voice_status = "error"
+                store.voice_error_message = "Server error: " + err
+                renpy.restart_interaction()
+            return None
+
+    class SubmitGuessAction(renpy.store.Action):
+        """POST guess_text + emotions to answer_check_url and return correct/wrong."""
+        def __call__(self):
+            print(f"[SubmitGuess] → answer={store.guess_text!r}  emotions_keys={list((store.voice_emotions or {}).keys())}", flush=True)
+            print(f"[SubmitGuess]   url={store.answer_check_url!r}", flush=True)
+            try:
+                payload = {
+                    "answer": (store.guess_text or "").strip(),
+                    "emotions": store.voice_emotions or {},
+                }
+                data = json.dumps(payload).encode("utf-8")
+                req = urllib.request.Request(
+                    store.answer_check_url,
+                    data=data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    body = json.loads(resp.read().decode("utf-8"))
+                ok = bool(body.get("correct", False))
+                store.server_guess_result = ok
+                store.gf_reply = (body.get("reply") or "").strip()
+                print(f"[SubmitGuess] ← correct={ok}  reply={store.gf_reply!r}", flush=True)
                 return renpy.store.Return("correct" if ok else "wrong")
             except Exception as e:
+                err = str(e)[:80]
+                print(f"[SubmitGuess] ✗ error={err!r}", flush=True)
                 store.server_guess_result = None
                 store.voice_status = "error"
-                store.voice_error_message = "Server error: " + str(e)[:80]
+                store.voice_error_message = "Server error: " + err
                 renpy.restart_interaction()
             return None
 
@@ -463,16 +538,19 @@ label stage1_call:
     phone_mc "I know you're upset. I want to explain."
     phone_gf "Fine. Tell me — why do you think I'm angry?"
 
+    $ _call_overlay_result = ""
     $ start_voice_record()
 
     call screen call_recording_overlay
 
     phone end call
 
-    if _return == "back_to_phone":
-        # $ timer_seconds = max(timer_seconds, 60)
+    $ print(f"[stage1_call] _call_overlay_result={_call_overlay_result!r}", flush=True)
+    if _call_overlay_result == "back_to_phone":
         jump stage1_phone_after_call
-    elif _return == "skip" or voice_status == "ok":
+    elif _call_overlay_result == "correct":
+        jump stage1_correct
+    elif _call_overlay_result == "skip":
         jump stage1_correct
     else:
         jump stage1_wrong
@@ -483,15 +561,18 @@ label stage1_call_retry:
 
     phone call "gf"
 
+    $ _call_overlay_result = ""
     $ start_voice_record()
 
     call screen call_recording_overlay
 
     phone end call
 
-    if _return == "back_to_phone":
+    if _call_overlay_result == "back_to_phone":
         jump stage1_phone_after_call
-    elif _return == "skip" or voice_status == "ok":
+    elif _call_overlay_result == "correct":
+        jump stage1_correct
+    elif _call_overlay_result == "skip":
         jump stage1_correct
     else:
         jump stage1_wrong

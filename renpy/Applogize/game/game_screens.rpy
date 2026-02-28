@@ -184,7 +184,11 @@ screen voice_guess_screen():
                 elif voice_status == "ok":
                     text "Voice captured." size 16 color "#44ff44" xalign 0.5
                 elif voice_status == "error":
-                    text "Voice failed. Type your answer or try again." size 14 color "#ff6666" xalign 0.5
+                    vbox:
+                        spacing 4
+                        text "Voice failed. Type your answer or try again." size 14 color "#ff6666" xalign 0.5
+                        if voice_error_message:
+                            text "[voice_error_message]" size 12 color "#ff9999" xalign 0.5
 
             null height 5
 
@@ -370,12 +374,19 @@ screen call_recording_overlay():
     timer 1.0 repeat True action If(
         call_remaining > 1,
         SetScreenVariable("call_remaining", call_remaining - 1),
-        Return("correct")
+        ContinueGuessAction()
     )
 
     # Poll every 0.5s while recording so status text updates live
     if voice_status == "recording":
         timer 0.5 repeat True action NullAction()
+
+    # Close screen as soon as _call_overlay_result is set by ContinueGuessAction
+    timer 0.1 repeat True action If(
+        _call_overlay_result != "",
+        Return(_call_overlay_result),
+        NullAction()
+    )
 
 
 ################################################################################
