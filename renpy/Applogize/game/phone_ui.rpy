@@ -545,7 +545,7 @@ screen phone_gallery_content(gallery_tab="photos"):
             frame:
                 xfill True
                 background None
-                xpadding 8
+                xpadding 0
                 ypadding 10
 
                 vbox:
@@ -554,7 +554,7 @@ screen phone_gallery_content(gallery_tab="photos"):
 
                     if gallery_tab == "photos":
                         grid 2 3:
-                            xalign 0.5
+                            xalign 0.0
                             spacing 10
 
                             for photo_path in gallery_photos:
@@ -637,7 +637,7 @@ screen phone_calendar_content():
         frame:
             xfill True
             ysize 40
-            background Solid("#ea4335")
+            background Solid("#4735ea")
             text "March 2026" size 18 color "#ffffff" xalign 0.5 yalign 0.5 bold True
 
         viewport:
@@ -674,7 +674,24 @@ screen phone_calendar_content():
                                 text "28" size 24 color "#ff6b9d" bold True
                             vbox:
                                 yalign 0.5
-                                text "100 Day Anniversary" size 15 color "#ffffff"
+                                text "3rd Anniversary" size 15 color "#ffffff"
+
+                    # Filler events
+                    for ev in [("MAR", "05", "Team meeting"), ("MAR", "10", "Dentist appointment")]:
+                        frame:
+                            xfill True
+                            ysize 50
+                            background Solid("#1e1e2e")
+                            xpadding 12
+                            ypadding 8
+
+                            hbox:
+                                spacing 14
+                                vbox:
+                                    yalign 0.5
+                                    text ev[0] size 10 color "#666666"
+                                    text ev[1] size 18 color "#666666"
+                                text ev[2] size 13 color "#888888" yalign 0.5
 
                     # Flight clue
                     button:
@@ -696,23 +713,6 @@ screen phone_calendar_content():
                                 yalign 0.5
                                 text "Flight to Tokyo" size 15 color "#ffffff"
                                 text "ICN > HND  08:00 AM" size 12 color "#aaaaaa"
-
-                    # Filler events
-                    for ev in [("MAR", "05", "Team meeting"), ("MAR", "10", "Dentist appointment")]:
-                        frame:
-                            xfill True
-                            ysize 50
-                            background Solid("#1e1e2e")
-                            xpadding 12
-                            ypadding 8
-
-                            hbox:
-                                spacing 14
-                                vbox:
-                                    yalign 0.5
-                                    text ev[0] size 10 color "#666666"
-                                    text ev[1] size 18 color "#666666"
-                                text ev[2] size 13 color "#888888" yalign 0.5
 
 
 ################################################################################
@@ -798,7 +798,7 @@ screen phone_memo_content():
         xfill True
         yfill True
 
-        use phone_app_header("Notes")
+        use phone_app_header("Memo")
 
         viewport:
             xfill True
@@ -827,16 +827,14 @@ screen phone_memo_content():
 
                         vbox:
                             spacing 5
-                            text "Girlfriend Notes" size 15 color "#fdd835" bold True
+                            text "About My Girlfriend" size 15 color "#fdd835" bold True
                             null height 3
                             text "- Wants to go on a trip to Tokyo" size 13 color "#ffffff"
                             text "- Promised to travel together for" size 13 color "#ffffff"
                             text "  our anniversary" size 13 color "#ffffff"
-                            text "- Fav food: anything with chicken" size 13 color "#cccccc"
+                            text "- Fav food: anything with chicken " size 13 color "#cccccc"
                             text "- Wants: limited edition perfume" size 13 color "#cccccc"
                             null height 4
-                            if "memo_preference" in found_clues:
-                                text "[[ CLUE FOUND ]]" size 11 color "#44ff44"
 
                     # Filler memos
                     frame:
