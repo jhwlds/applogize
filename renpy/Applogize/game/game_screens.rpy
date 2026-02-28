@@ -359,7 +359,7 @@ screen call_recording_overlay():
                 action Return("skip")
 
             # Cancel / back
-            textbutton "< Cancel call":
+            textbutton "< Check your phone again":
                 xalign 0.5
                 text_size 13
                 text_color "#666666"
@@ -548,7 +548,7 @@ screen apology_input_screen():
             hbox:
                 xfill True
                 text "Rage Gauge" size 13 color "#aaaaaa"
-                text "[rage_gauge]%%" size 13 color "#ffffff" xalign 1.0
+                text "[rage_gauge]%" size 13 color "#ffffff" xalign 1.0
 
             frame:
                 xfill True
@@ -559,6 +559,13 @@ screen apology_input_screen():
                     xsize max(2, int(5.96 * rage_gauge))
                     ysize 18
                     background Solid(get_apple_color())
+
+    # Guidance text
+    text "Be careful with your facial expression, tone, and word choice when you apologize.":
+        xalign 0.5
+        yalign 0.75
+        size 18
+        color "#dddddd"
 
     # Talk to her + Done buttons
     vbox:
@@ -615,6 +622,11 @@ screen apology_input_screen():
         text_size 14
         text_color "#ffcccc"
         action [SetVariable("rage_gauge", 100), Return("end_response")]
+
+    # Idle timer: if player doesn't choose for 30 seconds, trigger idle_warning
+    timer 1.0 repeat True action SetVariable("idle_seconds", idle_seconds + 1)
+    if idle_seconds >= 30:
+        timer 0.1 action [SetVariable("idle_seconds", 0), Return("idle_warning")]
 
 
 ################################################################################
