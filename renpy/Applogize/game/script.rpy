@@ -196,8 +196,17 @@ init python:
         t.start()
 
     class ContinueGuessAction(renpy.store.Action):
-        """Proceed without server check (STT only)."""
+        """Proceed after STT finished; block if still recording."""
         def __call__(self):
+            # If voice recording/STT is still running, keep the screen open
+            # so the player can see the final transcript once it arrives.
+            if store.voice_status == "recording":
+                try:
+                    renpy.notify("Still analyzing voice... please wait.")
+                except Exception:
+                    pass
+                return None
+
             return renpy.store.Return("correct")
 
     def run_tracker_start():
@@ -288,6 +297,8 @@ label start:
     # Intro video (click or key to skip). Use .mkv with Opus audio; Ren'Py does not support AAC.
     $ renpy.movie_cutscene("video/intro_video.mkv", stop_music=True)
 
+    $ renpy.movie_cutscene("video/we_are_done.mkv", stop_music=True)
+
     jump stage1
 
 ## Stage 1 - Find the Reason ###################################################
@@ -303,17 +314,9 @@ label stage1:
     with dissolve
 
     $ quick_menu = True
-    show gf normal at truecenter
-    with dissolve
-
-    gf "..."
-    gf "You seriously don't know? It's pathetic you have no idea why I'm upset."
 
     mc "(What did I do wrong...?)"
     mc "(Let me check my phone for clues.)"
-
-    hide gf
-    with dissolve
 
     $ quick_menu = False
 

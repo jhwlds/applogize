@@ -2,10 +2,13 @@
 ## Applogize - Smartphone UI (Better EMR Phone _phone() frame)
 ################################################################################
 
+# 전역으로 현재 앱 상태를 관리.
+default current_app = "home"
+
+
 screen phone_main_screen():
     modal True
 
-    default current_app = "home"
     default instagram_tab = "feed"
     default gallery_tab = "photos"
 
@@ -110,7 +113,7 @@ screen phone_home_content():
         yfill True
         background None
         ypadding 40
-        xpadding 30
+        xpadding 0
 
         vbox:
             xfill True
@@ -120,97 +123,138 @@ screen phone_home_content():
 
             null height 30
 
-            grid 2 3:
-                xalign 0.5
-                spacing 25
+            # 홈 화면을 가로로 드래그해서 여러 페이지를 볼 수 있게 한다.
+            viewport:
+                xfill True
+                yfill True
+                draggable True
+                mousewheel False
 
-                # Instagram
-                vbox:
-                    xsize 155
-                    spacing 6
+                hbox:
+                    spacing 80
 
-                    button:
-                        xsize 76
-                        ysize 76
-                        xalign 0.5
-                        background Solid("#e1306c")
-                        hover_background Solid("#f0508c")
-                        action SetScreenVariable("current_app", "instagram")
+                    # 페이지 1: 기존 앱 아이콘들
+                    frame:
+                        background None
 
-                        text "IG" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
+                        grid 2 3:
+                            xalign 0.5
+                            spacing 25
 
-                    text "Instagram" size 12 color "#cccccc" xalign 0.5
+                            # Instagram
+                            vbox:
+                                xsize 155
+                                spacing 6
 
-                # Gallery
-                vbox:
-                    xsize 155
-                    spacing 6
+                                button:
+                                    xsize 76
+                                    ysize 76
+                                    xalign 0.5
+                                    background Solid("#e1306c")
+                                    hover_background Solid("#f0508c")
+                                    action SetScreenVariable("current_app", "instagram")
 
-                    button:
-                        xsize 76
-                        ysize 76
-                        xalign 0.5
-                        background Solid("#34a853")
-                        hover_background Solid("#54c873")
-                        action SetScreenVariable("current_app", "gallery")
+                                    text "IG" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
 
-                        text "Pic" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
+                                text "Instagram" size 12 color "#cccccc" xalign 0.5
 
-                    text "Gallery" size 12 color "#cccccc" xalign 0.5
+                            # Gallery
+                            vbox:
+                                xsize 155
+                                spacing 6
 
-                # Calendar
-                vbox:
-                    xsize 155
-                    spacing 6
+                                button:
+                                    xsize 76
+                                    ysize 76
+                                    xalign 0.5
+                                    background Solid("#34a853")
+                                    hover_background Solid("#54c873")
+                                    action SetScreenVariable("current_app", "gallery")
 
-                    button:
-                        xsize 76
-                        ysize 76
-                        xalign 0.5
-                        background Solid("#ea4335")
-                        hover_background Solid("#ff6355")
-                        action SetScreenVariable("current_app", "calendar")
+                                    text "Pic" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
 
-                        text "Cal" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
+                                text "Gallery" size 12 color "#cccccc" xalign 0.5
 
-                    text "Calendar" size 12 color "#cccccc" xalign 0.5
+                            # Calendar
+                            vbox:
+                                xsize 155
+                                spacing 6
 
-                # Credit Card
-                vbox:
-                    xsize 155
-                    spacing 6
+                                button:
+                                    xsize 76
+                                    ysize 76
+                                    xalign 0.5
+                                    background Solid("#ea4335")
+                                    hover_background Solid("#ff6355")
+                                    action SetScreenVariable("current_app", "calendar")
 
-                    button:
-                        xsize 76
-                        ysize 76
-                        xalign 0.5
-                        background Solid("#1a237e")
-                        hover_background Solid("#3a439e")
-                        action SetScreenVariable("current_app", "creditcard")
+                                    text "Cal" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
 
-                        text "Pay" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
+                                text "Calendar" size 12 color "#cccccc" xalign 0.5
 
-                    text "Credit Card" size 12 color "#cccccc" xalign 0.5
+                            # Credit Card
+                            vbox:
+                                xsize 155
+                                spacing 6
 
-                # Memo
-                vbox:
-                    xsize 155
-                    spacing 6
+                                button:
+                                    xsize 76
+                                    ysize 76
+                                    xalign 0.5
+                                    background Solid("#1a237e")
+                                    hover_background Solid("#3a439e")
+                                    action SetScreenVariable("current_app", "creditcard")
 
-                    button:
-                        xsize 76
-                        ysize 76
-                        xalign 0.5
-                        background Solid("#fdd835")
-                        hover_background Solid("#ffee55")
-                        action SetScreenVariable("current_app", "memo")
+                                    text "Pay" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
 
-                        text "Memo" size 20 color "#333333" xalign 0.5 yalign 0.5 bold True
+                                text "Credit Card" size 12 color "#cccccc" xalign 0.5
 
-                    text "Notes" size 12 color "#cccccc" xalign 0.5
+                            # Memo
+                            vbox:
+                                xsize 155
+                                spacing 6
 
-                # Empty cell
-                null
+                                button:
+                                    xsize 76
+                                    ysize 76
+                                    xalign 0.5
+                                    background Solid("#fdd835")
+                                    hover_background Solid("#ffee55")
+                                    action SetScreenVariable("current_app", "memo")
+
+                                    text "Memo" size 20 color "#333333" xalign 0.5 yalign 0.5 bold True
+
+                                text "Notes" size 12 color "#cccccc" xalign 0.5
+
+                            # Empty cell
+                            null
+
+                    # 페이지 2: 추후 확장을 위한 빈 페이지 (예시 아이콘)
+                    frame:
+                        background None
+
+                        grid 2 3:
+                            xalign 0.5
+                            spacing 25
+
+                            vbox:
+                                xsize 155
+                                spacing 6
+                                button:
+                                    xsize 76
+                                    ysize 76
+                                    xalign 0.5
+                                    background Solid("#444444")
+                                    hover_background Solid("#666666")
+                                    action NullAction()
+                                    text "+" size 28 color "#ffffff" xalign 0.5 yalign 0.5 bold True
+                                text "Empty" size 12 color "#777777" xalign 0.5
+
+                            null
+                            null
+                            null
+                            null
+                            null
 
 
 ################################################################################
