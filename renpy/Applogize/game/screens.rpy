@@ -342,6 +342,10 @@ style navigation_button:
 
 style navigation_button_text:
     properties gui.text_properties("navigation_button")
+    idle_color "#000000"
+    hover_color "#000000"
+    selected_color "#000000"
+    insensitive_color "#444444"
 
 
 ## Main Menu screen ############################################################
@@ -350,12 +354,45 @@ style navigation_button_text:
 ##
 ## https://www.renpy.org/doc/html/screen_special.html#main-menu
 
+default _mm_video_slot = 0
+define _mm_video_duration = 8.018
+define _mm_video_fadein = 0.35
+define _mm_video_fadeout = 0.35
+define _mm_video_hold = 7.318
+
+transform mm_video_loop_envelope:
+    alpha 0.0
+    linear _mm_video_fadein alpha 1.0
+    pause _mm_video_hold
+    linear _mm_video_fadeout alpha 0.0
+
 screen main_menu():
 
     ## This ensures that any other menu screen is replaced.
     tag menu
 
-    add gui.main_menu_background
+    # Prefer WebM first for widest Ren'Py playback compatibility.
+    $ mm_video = None
+
+    if renpy.loadable("video/main_page_video.webm"):
+        $ mm_video = "video/main_page_video.webm"
+    elif renpy.loadable("video/main_page_video_h264.mkv"):
+        $ mm_video = "video/main_page_video_h264.mkv"
+    elif renpy.loadable("video/main_page_video.mkv"):
+        $ mm_video = "video/main_page_video.mkv"
+    elif renpy.loadable("video/main_page_video.mp4"):
+        $ mm_video = "video/main_page_video.mp4"
+
+    if mm_video:
+        if _mm_video_slot == 0:
+            add Movie(play=mm_video, loop=False, size=(1920, 1080)) at mm_video_loop_envelope
+        else:
+            add Movie(play=mm_video, loop=False, size=(1920, 1080)) at mm_video_loop_envelope
+
+        # Restart playback manually so each loop can fade in/out envelope.
+        timer _mm_video_duration repeat True action SetVariable("_mm_video_slot", 1 - _mm_video_slot)
+    else:
+        add Solid("#000000")
 
     ## This empty frame darkens the main menu.
     frame:
@@ -370,11 +407,7 @@ screen main_menu():
         vbox:
             style "main_menu_vbox"
 
-            text "[config.name!t]":
-                style "main_menu_title"
-
-            text "[config.version]":
-                style "main_menu_version"
+            add Transform("images/ui/game_title.png", zoom=0.3) xalign 1.0
 
 
 style main_menu_frame is empty
@@ -394,7 +427,7 @@ style main_menu_vbox:
     xoffset -30
     xmaximum 1200
     yalign 1.0
-    yoffset -30
+    yoffset -10
 
 style main_menu_text:
     properties gui.text_properties("main_menu", accent=True)
