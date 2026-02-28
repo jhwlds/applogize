@@ -23,7 +23,7 @@ transform phone_ui_scale:
 
 screen phone_main_screen():
     modal True
-    on "show" action [SetVariable("gallery_zoom_photo", None), SetVariable("instagram_story_zoom_photo", None)]
+    on "show" action [Play("music", "images/characters/gamesong.mp3"), SetVariable("gallery_zoom_photo", None), SetVariable("instagram_story_zoom_photo", None)]
 
     default instagram_tab = "feed"
     default gallery_tab = "photos"
@@ -146,7 +146,11 @@ screen phone_main_screen():
             text_size 24
             text_color "#ffffff"
             text_hover_color "#4aff7a"
-            action Return("make_call")
+            action [
+                Function(renpy.music.stop, fadeout=1.5),
+                Hide("phone_main_screen", transition=fade),
+                Return("make_call")
+            ]
 
 
 ################################################################################
