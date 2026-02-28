@@ -5,11 +5,13 @@ default pc_mc      = phone.character.Character("MC", phone.asset("mc_icon.png"),
 default pc_yuri    = phone.character.Character("Yuri", phone.asset("yuri_icon.png"), "y", 20, "#a327d6")
 default pc_monika  = phone.character.Character("Monika", phone.asset("monika_icon.png"), "m", 40, "#0a0")
 default pc_natsuki = phone.character.Character("Natsuki", phone.asset("natsuki_icon.png"), "n", 45, "#fbb")
+default pc_gf      = phone.character.Character("Girlfriend", phone.asset("default_icon.png"), "gf", 30, "#ff6b9d")
 
 default pov_key = "mc"
 
-define phone_s  = Character("Sayori", screen="phone_say", who_style="phone_say_label", what_style="phone_say_dialogue")
-define phone_mc = Character("MC", screen="phone_say", who_style="phone_say_label", what_style="phone_say_dialogue")
+define phone_s    = Character("Sayori",     screen="phone_say", who_style="phone_say_label", what_style="phone_say_dialogue")
+define phone_mc   = Character("MC",         screen="phone_say", who_style="phone_say_label", what_style="phone_say_dialogue")
+define phone_gf   = Character("Girlfriend", screen="phone_say", who_style="phone_say_label", what_style="phone_say_dialogue")
 
 init 100 python in phone.application:
     add_app_to_all_characters(message_app)

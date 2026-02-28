@@ -324,8 +324,8 @@ label stage1_phone_loop:
     $ timer_running = True
     call screen phone_main_screen
 
-    if _return == "make_guess":
-        jump stage1_guess
+    if _return == "make_call":
+        jump stage1_call
     elif _return == "timeout":
         jump stage1_timeout
     else:
@@ -347,6 +347,33 @@ label stage1_guess:
     elif _return == "back_to_phone":
         $ timer_seconds = max(timer_seconds, 60)
         jump stage1_phone_loop
+    else:
+        jump stage1_wrong
+
+label stage1_call:
+    $ timer_running = False
+    $ guess_text = ""
+    $ voice_status = ""
+    $ voice_error_message = ""
+    $ quick_menu = False
+
+    phone call "gf"
+    phone_gf "..."
+    phone_gf "Why are you calling me right now?"
+    phone_mc "I know you're upset. I want to explain."
+    phone_gf "Fine. Tell me — why do you think I'm angry?"
+
+    $ start_voice_record()
+
+    call screen call_recording_overlay
+
+    phone end call
+
+    if _return == "back_to_phone":
+        $ timer_seconds = max(timer_seconds, 60)
+        jump stage1_phone_loop
+    elif voice_status == "ok":
+        jump stage1_correct
     else:
         jump stage1_wrong
 
