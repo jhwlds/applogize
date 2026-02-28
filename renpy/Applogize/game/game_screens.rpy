@@ -367,7 +367,7 @@ screen apology_input_screen():
                 text "GF" size 48 color "#ff6b9d" xalign 0.5 yalign 0.5
             text "Girlfriend" size 18 color "#ffffff" xalign 0.5
 
-    # Apology gauge
+    # Rage gauge (formerly apology gauge)
     frame:
         xalign 0.5
         ypos 500
@@ -382,8 +382,8 @@ screen apology_input_screen():
 
             hbox:
                 xfill True
-                text "Apology Gauge" size 13 color "#aaaaaa"
-                text "[apology_gauge]%%" size 13 color "#ffffff" xalign 1.0
+                text "Rage Gauge" size 13 color "#aaaaaa"
+                text "[rage_gauge]%%" size 13 color "#ffffff" xalign 1.0
 
             frame:
                 xfill True
@@ -391,7 +391,7 @@ screen apology_input_screen():
                 background Solid("#2a2a3e")
 
                 frame:
-                    xsize max(2, int(5.96 * apology_gauge))
+                    xsize max(2, int(5.96 * rage_gauge))
                     ysize 18
                     background Solid(get_apple_color())
 
