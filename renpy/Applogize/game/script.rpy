@@ -28,6 +28,8 @@ default server_guess_result = None  # True/False/None after submit
 default heart_rescue_success = False  # True if heart detected in grab-one-last-chance flow
 default voice_emotions = {}  # emotion dict from /analyze, forwarded to /check_answer
 default gf_reply = ""  # girlfriend's AI-generated response line from /check_answer
+default gf_hint = ""   # hint when wrong (Stage 1), helps get closer to answer
+default wrong_attempt_count = 0  # Stage 1 틀린 횟수 (힌트 강도용)
 default _call_overlay_result = ""  # "correct"/"wrong"/"back_to_phone"/"skip", read by call_recording_overlay timer
 default videocall_duration = 0  # seconds elapsed during video call (Stage 2)
 default last_smile_count = 0    # smile events when End call pressed (from tracker JSON)
@@ -288,6 +290,7 @@ init python:
                 payload = {
                     "answer": (store.guess_text or "").strip(),
                     "emotions": store.voice_emotions or {},
+                    "wrong_attempt_count": getattr(store, "wrong_attempt_count", 0),
                 }
                 data = json.dumps(payload).encode("utf-8")
                 req = urllib.request.Request(
@@ -301,6 +304,7 @@ init python:
                 ok = bool(body.get("correct", False))
                 store.server_guess_result = ok
                 store.gf_reply = (body.get("reply") or "").strip()
+                store.gf_hint = (body.get("hint") or "").strip()
                 print(f"[HangUp] ← correct={ok}  reply={store.gf_reply!r}", flush=True)
                 store._call_overlay_result = "correct" if ok else "wrong"
                 renpy.restart_interaction()
@@ -321,6 +325,7 @@ init python:
                 payload = {
                     "answer": (store.guess_text or "").strip(),
                     "emotions": store.voice_emotions or {},
+                    "wrong_attempt_count": getattr(store, "wrong_attempt_count", 0),
                 }
                 data = json.dumps(payload).encode("utf-8")
                 req = urllib.request.Request(
@@ -334,6 +339,7 @@ init python:
                 ok = bool(body.get("correct", False))
                 store.server_guess_result = ok
                 store.gf_reply = (body.get("reply") or "").strip()
+                store.gf_hint = (body.get("hint") or "").strip()
                 print(f"[SubmitGuess] ← correct={ok}  reply={store.gf_reply!r}", flush=True)
                 return renpy.store.Return("correct" if ok else "wrong")
             except Exception as e:
@@ -572,6 +578,7 @@ label stage1:
     $ timer_running = True
     $ found_clues = set()
     $ rage_gauge = 70
+    $ wrong_attempt_count = 0
 
     scene bg_dark
     with dissolve
@@ -693,6 +700,7 @@ label stage1_call_retry:
         jump stage1_wrong
 
 label stage1_wrong:
+    $ wrong_attempt_count += 1
     $ rage_gauge = min(100, rage_gauge + 10)
     $ quick_menu = True
 
@@ -710,6 +718,9 @@ label stage1_wrong:
     else:
         gf "That's not it at all."
         gf "Are you even trying right now?"
+
+    if gf_hint:
+        gf "[gf_hint]"
 
     mc "(No, that wasn't it... Let me think again.)"
 
@@ -859,6 +870,7 @@ label check_rescue:
             $ quick_menu = False
             $ in_rescue_mission = True
             if stage == 1:
+                $ wrong_attempt_count = 0
                 jump stage1_phone_loop
             else:
                 $ run_tracker_start()

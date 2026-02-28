@@ -18,7 +18,7 @@ default gallery_photos = [
 transform phone_ui_scale:
     xalign 0.5
     yalign 0.5
-    zoom 1.1
+    zoom 1.43  # 1.1 * 1.3 (30% larger)
 
 
 screen phone_main_screen():

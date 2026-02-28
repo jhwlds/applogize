@@ -4,7 +4,7 @@ init -999:
 
 init -200:
     define gui.phone_margin = (15, 81, 15, 94)
-    define gui.phone_zoom = 0.8
+    define gui.phone_zoom = 0.9  # 0.8 * 1.3 (30% larger)
     define gui.phone_xsize = 389
     define gui.phone_ysize = 803
 

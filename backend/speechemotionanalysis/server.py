@@ -110,6 +110,7 @@ def health() -> Dict[str, str]:
 class CheckAnswerRequest(BaseModel):
     answer: str
     emotions: Dict[str, float] = {}
+    wrong_attempt_count: int = 0  # 틀린 횟수 (힌트 강도 조절)
 
 
 class EvaluateApologyFace(BaseModel):
@@ -131,16 +132,21 @@ def check_answer(body: CheckAnswerRequest) -> Dict[str, Any]:
     print(f"\n{'='*60}", flush=True)
     print(f"[check_answer] ▶ REQUEST", flush=True)
     print(f"[check_answer]   answer   : {body.answer!r}", flush=True)
-    print(f"[check_answer]   emotions : {body.emotions}", flush=True)
+    print(f"[check_answer]   wrong_attempt_count: {body.wrong_attempt_count}", flush=True)
 
     openai_api_key = _get_setting("OPENAI_API_KEY")
     if not openai_api_key:
         print("[check_answer] ✗ OPENAI_API_KEY not set", flush=True)
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is required")
 
-    emotions_str = ", ".join(
-        f"{k}: {v:.2f}" for k, v in sorted(body.emotions.items(), key=lambda x: -x[1])
-    ) if body.emotions else "N/A"
+    hint_strength = (
+        "Give a GENTLE hint: mention one concept they're missing (dream OR cheating) "
+        "without saying it directly. E.g. 'Think about what happens when I sleep.' or 'It's not about today.'"
+        if body.wrong_attempt_count <= 1
+        else "Give a STRONGER hint: nudge toward BOTH concepts. E.g. 'It wasn't real, but it felt real. And it was about us.'"
+        if body.wrong_attempt_count == 2
+        else "Give the STRONGEST hint short of the answer: almost spell it out. E.g. 'Something I dreamed. Something you did in that dream.'"
+    )
 
     system_prompt = (
         "You are the judge of a couples' narrative game.\n\n"
@@ -151,19 +157,22 @@ def check_answer(body: CheckAnswerRequest) -> Dict[str, Any]:
         "2. Partial or paraphrased answers are acceptable as long as both elements "
         "(dream + cheating) are recognizable.\n\n"
         "Reply rules:\n"
-        "- The 'reply' field MUST be written in ENGLISH.\n"
-        "- Short emotional in-game dialogue spoken BY THE GIRLFRIEND (1-2 sentences, statements only, no questions).\n"
-        "- correct=true tone: hurt but relieved he understood. "
-        
-        "- correct=false tone: dismissive or frustrated. "
-        
+        "- The 'reply' field MUST be written in ENGLISH. Short emotional dialogue (1-2 sentences) by the girlfriend.\n"
+        "- correct=true: hurt but relieved he understood.\n"
+        "- correct=false: dismissive or frustrated. Include a natural hint in the dialogue that helps the player "
+        "get closer without giving the answer. "
+        f"Hint strength (wrong_attempt_count={body.wrong_attempt_count}): {hint_strength}\n"
+        "- The hint should feel like part of her emotional reaction, not a tutorial. "
+        "E.g. 'That's not it. Maybe think about what I see when I close my eyes at night.'\n\n"
         "Respond ONLY with valid JSON, no markdown:\n"
-        '{"correct": true, "reply": "..."}'
+        '{"correct": true, "reply": "..."}\n'
+        'When correct=false, also include: "hint": "optional extra hint text" (short phrase, can repeat/clarify what she said)'
     )
 
     user_message = (
         f"Correct reason: {CORRECT_REASON}\n"
-        f"Player's answer (speech-to-text): {body.answer}"
+        f"Player's answer (speech-to-text): {body.answer}\n"
+        f"Player has been wrong {body.wrong_attempt_count} time(s) so far."
     )
 
     print(f"[check_answer] → sending to OpenAI ({OPENAI_MODEL})", flush=True)
@@ -178,6 +187,7 @@ def check_answer(body: CheckAnswerRequest) -> Dict[str, Any]:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message},
             ],
+            temperature=0.8,
             timeout=25,
         )
         raw = completion.choices[0].message.content or "{}"
@@ -185,14 +195,18 @@ def check_answer(body: CheckAnswerRequest) -> Dict[str, Any]:
         result = json.loads(raw)
         correct = bool(result.get("correct", False))
         reply = str(result.get("reply", "...")).strip()
+        hint = str(result.get("hint", "")).strip() if not correct else ""
     except Exception as exc:
         logger.error("OpenAI check_answer failed: %s", exc)
         print(f"[check_answer] ✗ OpenAI error: {exc}", flush=True)
         raise HTTPException(status_code=502, detail=f"OpenAI request failed: {exc}") from exc
 
-    print(f"[check_answer] ◀ RESPONSE  correct={correct}  reply={reply!r}", flush=True)
+    print(f"[check_answer] ◀ RESPONSE  correct={correct}  reply={reply!r}  hint={hint!r}", flush=True)
     print(f"{'='*60}\n", flush=True)
-    return {"correct": correct, "reply": reply}
+    out = {"correct": correct, "reply": reply}
+    if hint:
+        out["hint"] = hint
+    return out
 
 
 @app.post("/evaluate_apology")
