@@ -4,6 +4,8 @@
 
 # 전역으로 현재 앱 상태를 관리.
 default current_app = "home"
+default gallery_zoom_photo = None
+default instagram_story_zoom_photo = None
 default gallery_photos = [
     "images/clues/photo_1.png",
     "images/clues/photo_2.png",
@@ -21,10 +23,10 @@ transform phone_ui_scale:
 
 screen phone_main_screen():
     modal True
+    on "show" action [SetVariable("gallery_zoom_photo", None), SetVariable("instagram_story_zoom_photo", None)]
 
     default instagram_tab = "feed"
     default gallery_tab = "photos"
-    default gallery_zoom_photo = None
 
     fixed:
         xfill True
@@ -65,55 +67,65 @@ screen phone_main_screen():
         at phone_ui_scale
 
         use _phone(xpos=0.5, xanchor=0.5, ypos=0.5, yanchor=0.5):
-            vbox:
+            fixed:
                 xfill True
                 yfill True
 
-                # Reserve space for status bar so content doesn't overlap
-                null height gui.phone_status_bar_height
-
-                # App content area
-                frame:
+                vbox:
                     xfill True
                     yfill True
-                    background None
-                    xpadding 0
-                    ypadding 0
-                    has fixed
 
-                    # Phone wallpaper (auto-fit to the content area).
-                    add "images/ui/screen_wallpaper.png" fit "cover"
+                    # Reserve space for status bar so content doesn't overlap
+                    null height gui.phone_status_bar_height
 
-                    # Dim layer above wallpaper when an app is open.
-                    if current_app != "home":
-                        add Solid("#00000088")
+                    # App content area
+                    frame:
+                        xfill True
+                        yfill True
+                        background None
+                        xpadding 0
+                        ypadding 0
+                        has fixed
 
-                    if current_app == "home":
-                        use phone_home_content
-                    elif current_app == "instagram":
-                        use phone_instagram_content(instagram_tab=instagram_tab)
-                    elif current_app == "gallery":
-                        use phone_gallery_content(gallery_tab=gallery_tab)
-                    elif current_app == "calendar":
-                        use phone_calendar_content
-                    elif current_app == "creditcard":
-                        use phone_creditcard_content
-                    elif current_app == "memo":
-                        use phone_memo_content
+                        # Phone wallpaper (auto-fit to the content area).
+                        add "images/ui/screen_wallpaper.png" fit "cover"
 
-                # Home button bar
-                frame:
-                    xfill True
-                    ysize 44
-                    background Solid("#111118")
+                        # Dim layer above wallpaper when an app is open.
+                        if current_app == "instagram":
+                            add Solid("#000000")
+                        elif current_app != "home":
+                            add Solid("#00000088")
 
-                    textbutton "---":
-                        xalign 0.5
-                        yalign 0.5
-                        text_size 18
-                        text_color "#444444"
-                        text_hover_color "#ffffff"
-                        action SetScreenVariable("current_app", "home")
+                        if current_app == "home":
+                            use phone_home_content
+                        elif current_app == "instagram":
+                            use phone_instagram_content(instagram_tab=instagram_tab)
+                        elif current_app == "gallery":
+                            use phone_gallery_content(gallery_tab=gallery_tab)
+                        elif current_app == "calendar":
+                            use phone_calendar_content
+                        elif current_app == "wallet":
+                            use phone_wallet_content
+                        elif current_app == "memo":
+                            use phone_memo_content
+
+                    # Home button bar
+                    frame:
+                        xfill True
+                        ysize 44
+                        background Solid("#111118")
+
+                        textbutton "---":
+                            xalign 0.5
+                            yalign 0.5
+                            text_size 18
+                            text_color "#444444"
+                            text_hover_color "#ffffff"
+                            action SetScreenVariable("current_app", "home")
+
+                # Show story full-screen over the whole phone area (including status bar).
+                if instagram_story_zoom_photo:
+                    use phone_instagram_story_zoom(photo_path=instagram_story_zoom_photo)
 
     # --- "Make Guess" button (outside phone) ---
     frame:
@@ -234,7 +246,7 @@ screen phone_home_content():
 
                                 text "Calendar" size 13 color "#ffffff" xalign 0.5 bold True outlines [(2, "#00000088", 0, 0)]
 
-                            # Credit Card
+                            # Wallet
                             vbox:
                                 xsize 155
                                 spacing 6
@@ -245,7 +257,7 @@ screen phone_home_content():
                                     xalign 0.5
                                     background None
                                     hover_background None
-                                    action SetScreenVariable("current_app", "creditcard")
+                                    action SetScreenVariable("current_app", "wallet")
 
                                     add "images/ui/icons/wallet_icon.png":
                                         fit "contain"
@@ -254,7 +266,7 @@ screen phone_home_content():
                                         xsize 76
                                         ysize 76
 
-                                text "Credit Card" size 13 color "#ffffff" xalign 0.5 bold True outlines [(2, "#00000088", 0, 0)]
+                                text "Wallet" size 13 color "#ffffff" xalign 0.5 bold True outlines [(2, "#00000088", 0, 0)]
 
                             # Memo
                             vbox:
@@ -330,30 +342,113 @@ screen phone_instagram_content(instagram_tab="feed"):
             ypadding 8
 
             hbox:
+                xfill True
+                xalign 0.5
                 spacing 10
                 yalign 0.5
 
                 vbox:
+                    xsize 64
+                    xalign 0.5
                     spacing 3
                     button:
                         xsize 56
                         ysize 56
-                        background Solid("#e1306c")
-                        hover_background Solid("#ff5090")
-                        action [Function(add_clue, "instagram_story"), SetScreenVariable("instagram_tab", "story")]
+                        xalign 0.5
+                        background None
+                        hover_background None
+                        action SetVariable("instagram_story_zoom_photo", "images/clues/photo_story.png")
 
-                        text "GF" size 16 color "#ffffff" xalign 0.5 yalign 0.5 bold True
-                    text "Her" size 10 color "#cccccc" xalign 0.5
+                        fixed:
+                            xsize 56
+                            ysize 56
+
+                            # Green story ring for girlfriend.
+                            add "phone/assets/circle.png":
+                                xalign 0.5
+                                yalign 0.5
+                                xsize 56
+                                ysize 56
+                                fit "contain"
+                                matrixcolor TintMatrix("#24d366")
+
+                            # Inner cutout to make the ring visible.
+                            add "phone/assets/circle.png":
+                                xalign 0.5
+                                yalign 0.5
+                                xsize 52
+                                ysize 52
+                                fit "contain"
+                                matrixcolor TintMatrix("#12121e")
+
+                            if renpy.loadable("images/clues/photo_5.png"):
+                                add RoundedCorners(
+                                    Transform("images/clues/photo_5.png", fit="cover", xsize=48, ysize=48),
+                                    radius=24
+                                ):
+                                    xalign 0.5
+                                    yalign 0.5
+                            else:
+                                circle border 0 color "#e1306c":
+                                    xalign 0.5
+                                    yalign 0.5
+                                    xsize 50
+                                    ysize 50
+                                text "GF" size 16 color "#ffffff" xalign 0.5 yalign 0.5 bold True
+                    fixed:
+                        xsize 56
+                        ysize 14
+                        xalign 0.5
+                        xoffset 6
+                        yoffset 2
+                        text "Apple":
+                            size 10
+                            color "#ffffff"
+                            xalign 0.5
+                            yalign 0.5
 
                 for name in ["Alex", "Sam", "Jay"]:
                     vbox:
+                        xsize 64
+                        xalign 0.5
                         spacing 3
-                        frame:
+                        button:
                             xsize 56
                             ysize 56
-                            background Solid("#333344")
-                            text name[0] size 20 color "#888888" xalign 0.5 yalign 0.5
-                        text "[name]" size 10 color "#666666" xalign 0.5
+                            xalign 0.5
+                            background None
+                            hover_background None
+                            action NullAction()
+
+                            fixed:
+                                xsize 56
+                                ysize 56
+                                add "phone/assets/circle.png":
+                                    xalign 0.5
+                                    yalign 0.5
+                                    xsize 56
+                                    ysize 56
+                                    fit "contain"
+                                    matrixcolor TintMatrix("#6a6a7a")
+                                add "phone/assets/circle.png":
+                                    xalign 0.5
+                                    yalign 0.5
+                                    xsize 52
+                                    ysize 52
+                                    fit "contain"
+                                    matrixcolor TintMatrix("#2a2a36")
+                                text name[0] size 20 color "#888888" xalign 0.5 yalign 0.5
+                        fixed:
+                            xsize 56
+                            ysize 14
+                            xalign 0.5
+                            xoffset 6
+                            yoffset 2
+                            text "[name]":
+                                size 10
+                                color "#666666"
+                                xalign 0.5
+                                yalign 0.5
 
         # Feed
         viewport:
@@ -365,85 +460,47 @@ screen phone_instagram_content(instagram_tab="feed"):
             frame:
                 xfill True
                 background None
-                xpadding 10
+                xpadding 0
                 ypadding 10
 
                 vbox:
                     xfill True
                     spacing 8
 
-                    # Story expanded view
-                    if instagram_tab == "story":
-                        frame:
-                            xfill True
-                            ysize 180
-                            background Solid("#2a1a2e")
-                            xpadding 15
-                            ypadding 15
+                    # Feed images (top: feed_1, bottom: feed_2)
+                    for feed_path in ["images/clues/feed_1.png", "images/clues/feed_2.png"]:
+                        if renpy.loadable(feed_path):
+                            add feed_path:
+                                fit "cover"
+                                xsize 356
+                                ysize 220
+                                xalign 0.5
+                        else:
+                            frame:
+                                xsize 356
+                                ysize 220
+                                xalign 0.5
+                                background Solid("#151522")
+                                text "Missing: [feed_path]":
+                                    size 13
+                                    color "#888888"
+                                    xalign 0.5
+                                    yalign 0.5
 
-                            vbox:
-                                spacing 10
-                                text "Her Story" size 14 color "#ff6b9d" bold True
-                                text "\"It's our anniversary and\nI'm spending it alone... \"" size 17 color "#ffffff"
-                                if "instagram_story" in found_clues:
-                                    text "[[ CLUE FOUND ]]" size 12 color "#44ff44"
+screen phone_instagram_story_zoom(photo_path):
+    modal True
+    zorder 120
+    timer 3.0 action SetVariable("instagram_story_zoom_photo", None)
 
-                    # Reel clue
-                    frame:
-                        xfill True
-                        ysize 130
-                        background Solid("#1e1e2e")
-                        xpadding 12
-                        ypadding 10
-
-                        vbox:
-                            spacing 5
-                            hbox:
-                                spacing 8
-                                frame:
-                                    xsize 28
-                                    ysize 28
-                                    background Solid("#e1306c")
-                                    text "G" size 14 color "#ffffff" xalign 0.5 yalign 0.5
-                                text "Girlfriend" size 13 color "#ffffff" yalign 0.5
-
-                            button:
-                                xfill True
-                                ysize 70
-                                background Solid("#2a2a3e")
-                                hover_background Solid("#3a3a5e")
-                                action Function(add_clue, "instagram_reel")
-
-                                frame:
-                                    background None
-                                    xpadding 10
-                                    ypadding 8
-                                    vbox:
-                                        text "Liked a reel" size 11 color "#aaaaaa"
-                                        text "\"Top 5 Anniversary Gift Ideas\"" size 14 color "#ffffff"
-                                        if "instagram_reel" in found_clues:
-                                            text "[[ CLUE FOUND ]]" size 11 color "#44ff44"
-
-                    # Filler posts
-                    for i in range(2):
-                        frame:
-                            xfill True
-                            ysize 80
-                            background Solid("#1e1e2e")
-                            xpadding 12
-                            ypadding 10
-
-                            vbox:
-                                hbox:
-                                    spacing 8
-                                    frame:
-                                        xsize 28
-                                        ysize 28
-                                        background Solid("#444455")
-                                        text "?" size 14 color "#888888" xalign 0.5 yalign 0.5
-                                    text "Friend[i+1]" size 13 color "#888888" yalign 0.5
-                                null height 6
-                                text "Great weather today!" size 13 color "#666666"
+    if renpy.loadable(photo_path):
+        add photo_path fit "cover"
+    else:
+        add Solid("#111111")
+        text "Missing: [photo_path]":
+            size 14
+            color "#bbbbbb"
+            xalign 0.5
+            yalign 0.5
 
 
 ################################################################################
@@ -493,23 +550,23 @@ screen phone_gallery_content(gallery_tab="photos"):
                     spacing 8
 
                     if gallery_tab == "photos":
-                        grid 3 2:
+                        grid 2 3:
                             xalign 0.5
-                            spacing 6
+                            spacing 10
 
                             for photo_path in gallery_photos:
                                 button:
-                                    xsize 125
-                                    ysize 125
+                                    xsize 170
+                                    ysize 170
                                     background Solid("#1f1f2f")
                                     hover_background Solid("#2f2f4a")
-                                    action SetScreenVariable("gallery_zoom_photo", photo_path)
+                                    action SetVariable("gallery_zoom_photo", photo_path)
 
                                     if renpy.loadable(photo_path):
                                         add photo_path:
                                             fit "cover"
-                                            xsize 125
-                                            ysize 125
+                                            xsize 170
+                                            ysize 170
                                     else:
                                         vbox:
                                             xalign 0.5
@@ -559,7 +616,7 @@ screen phone_gallery_photo_zoom(photo_path):
             text_size 14
             text_color "#ffffff"
             text_hover_color "#dddddd"
-            action SetScreenVariable("gallery_zoom_photo", None)
+            action SetVariable("gallery_zoom_photo", None)
 
 
 ################################################################################
@@ -615,8 +672,6 @@ screen phone_calendar_content():
                             vbox:
                                 yalign 0.5
                                 text "100 Day Anniversary" size 15 color "#ffffff"
-                                if "calendar_anniversary" in found_clues:
-                                    text "[[ CLUE FOUND ]]" size 11 color "#44ff44"
 
                     # Flight clue
                     button:
@@ -632,14 +687,12 @@ screen phone_calendar_content():
                             spacing 14
                             vbox:
                                 yalign 0.5
-                                text "MAR" size 11 color "#4a90d9"
-                                text "02" size 24 color "#4a90d9" bold True
+                                text "OCT" size 11 color "#4a90d9"
+                                text "28" size 24 color "#4a90d9" bold True
                             vbox:
                                 yalign 0.5
                                 text "Flight to Tokyo" size 15 color "#ffffff"
-                                text "ICN > NRT  10:30 AM" size 12 color "#aaaaaa"
-                                if "calendar_flight" in found_clues:
-                                    text "[[ CLUE FOUND ]]" size 11 color "#44ff44"
+                                text "ICN > HND  08:00 AM" size 12 color "#aaaaaa"
 
                     # Filler events
                     for ev in [("MAR", "05", "Team meeting"), ("MAR", "10", "Dentist appointment")]:
@@ -660,30 +713,31 @@ screen phone_calendar_content():
 
 
 ################################################################################
-## Credit Card
+## Wallet
 ################################################################################
 
-screen phone_creditcard_content():
+screen phone_wallet_content():
     vbox:
         xfill True
         yfill True
 
-        use phone_app_header("Credit Card")
+        use phone_app_header("Wallet")
 
         # Card display
         frame:
             xfill True
-            ysize 110
-            background Solid("#0d1b3e")
+            ysize 115
+            background Solid("#000000")
             xpadding 20
-            ypadding 12
+            ypadding 13
 
             vbox:
                 spacing 6
                 text "My Card" size 13 color "#aaaaaa"
                 text "**** **** **** 1234" size 15 color "#ffffff"
                 text "This month" size 11 color "#aaaaaa"
-                text "$892.00" size 26 color "#ffd700" bold True
+                text "$3556.70" size 26 color "#ffd700" bold True
+                null height 8
 
         viewport:
             xfill True
@@ -701,46 +755,35 @@ screen phone_creditcard_content():
                     xfill True
                     spacing 6
 
-                    text "Recent Transactions" size 13 color "#888888"
+                    text "Recent Transactions" size 15 color "#FFFFFF"
 
-                    # Airline ticket clue
-                    button:
-                        xfill True
-                        ysize 70
-                        background Solid("#1a1a3e")
-                        hover_background Solid("#2a2a5e")
-                        xpadding 12
-                        ypadding 8
-                        action Function(add_clue, "creditcard_airline")
-
-                        hbox:
+                    # All transactions share the same card style.
+                    for tx in [
+                        ("Global Wings Airline", "Feb 28 - Online", "$1775.50", "1 ticket"),
+                        ("Korean Games", "Feb 27 - Online", "$2500.00", "In-app purchase"),
+                        ("Starbucks", "Feb 26 - In store", "$5.80", "Card present"),
+                        ("Convenience Store", "Feb 25 - In store", "$3.20", "Card present"),
+                        ("Food Delivery", "Feb 24 - Online", "$18.50", "Delivery order"),
+                    ]:
+                        button:
                             xfill True
-                            vbox:
-                                text "Korean Air" size 14 color "#ffffff"
-                                text "Feb 25 - Online" size 11 color "#888888"
-                                if "creditcard_airline" in found_clues:
-                                    text "[[ CLUE FOUND ]]" size 11 color "#44ff44"
-                            vbox:
-                                xalign 1.0
-                                yalign 0.5
-                                text "$450.00" size 15 color "#ff6b6b"
-                                text "1 ticket" size 11 color "#ff6b6b"
-
-                    # Filler transactions
-                    for tx in [("Starbucks", "Feb 27", "$5.80"), ("Convenience Store", "Feb 26", "$3.20"), ("Food Delivery", "Feb 25", "$18.50")]:
-                        frame:
-                            xfill True
-                            ysize 50
-                            background Solid("#1e1e2e")
+                            ysize 70
+                            background Solid("#000000")
+                            hover_background Solid("#2a2a5e")
                             xpadding 12
                             ypadding 8
+                            action NullAction()
 
                             hbox:
                                 xfill True
                                 vbox:
-                                    text tx[0] size 13 color "#cccccc"
-                                    text tx[1] size 10 color "#666666"
-                                text tx[2] size 13 color "#cccccc" xalign 1.0 yalign 0.5
+                                    text tx[0] size 14 color "#ffffff"
+                                    text tx[1] size 11 color "#888888"
+                                vbox:
+                                    xfill True
+                                    yalign 0.5
+                                    text tx[2] size 15 color "#ff6b6b" xalign 1.0
+                                    text tx[3] size 11 color "#ff6b6b" xalign 1.0
 
 
 ################################################################################
