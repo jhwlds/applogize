@@ -1,16 +1,16 @@
 # /!\ default
 # pc as in phone character :monikk:
 default pc_sayori  = phone.character.Character("Sayori", phone.asset("sayori_icon.png"), "s", 21, "#22Abf8")
-default pc_mc      = phone.character.Character("MC", phone.asset("mc_icon.png"), "mc", 35, "#484848")
+default pc_me      = phone.character.Character("Me", phone.asset("me_icon.png"), "me", 35, "#484848")
 default pc_yuri    = phone.character.Character("Yuri", phone.asset("yuri_icon.png"), "y", 20, "#a327d6")
 default pc_monika  = phone.character.Character("Monika", phone.asset("monika_icon.png"), "m", 40, "#0a0")
 default pc_natsuki = phone.character.Character("Natsuki", phone.asset("natsuki_icon.png"), "n", 45, "#fbb")
 default pc_gf      = phone.character.Character("Girlfriend", phone.asset("default_icon.png"), "gf", 30, "#ff6b9d")
 
-default pov_key = "mc"
+default pov_key = "me"
 
 define phone_s    = Character("Sayori",     screen="phone_say", who_style="phone_say_label", what_style="phone_say_dialogue")
-define phone_mc   = Character("MC",         screen="phone_say", who_style="phone_say_label", what_style="phone_say_dialogue")
+define phone_me   = Character("Me",         screen="phone_say", who_style="phone_say_label", what_style="phone_say_dialogue")
 define phone_gf   = Character("Girlfriend", screen="phone_say", who_style="phone_say_label", what_style="phone_say_dialogue")
 
 init 100 python in phone.application:
@@ -24,7 +24,7 @@ init 100 python in phone.calendar:
 # Disabled for Ren'Py 8.5 / Applogize (init order breaks group chat registration)
 # init phone register:
 #     define "Welcome":
-#         add "s" add "mc" add "y" add "m" add "n"
+#         add "s" add "me" add "y" add "m" add "n"
 #         icon phone.asset("default_icon.png")
 #         as thanks_for_using_my_framework key "ddu"
 
@@ -32,7 +32,7 @@ label phone_discussion_test:
     phone discussion "ddu":
         time year 2023 month 6 day 5 hour 16 minute 30 delay -1 # exact date and time at which i wrote this. yes i am feeling quite silly and goofy
         label "'Sayori' has been added to the group" delay -1
-        label "'MC' has been added to the group" delay -1
+        label "'Me' has been added to the group" delay -1
         label "'Yuri' has been added to the group" delay -1
         label "'Monika' has been added to the group" delay -1
         label "'Natsuki' has been added to the group" delay 0.2
@@ -43,11 +43,11 @@ label phone_discussion_test:
         "s" "natsuki!!!!! {emoji=EllenScream}"
         "s" "no being a meanie!!!!!!!{emoji=EllenScream}{emoji=EllenScream}{emoji=EllenScream}"
         "y" "If you are interested in DDLC mods, be sure to check out our mod {a=https://undercurrentsmod.weebly.com}Doki Doki Undercurrents{/a}! {emoji=Melody}"
-        "mc" "In case you encounter an issue (or wanna make a suggestion),"
-        "mc" "you can:"
-        "mc" "DM me at {i}elckarow{/i} on Discord,"
-        "mc" "open an issue on {a=https://github.com/Elckarow/Better-EMR-Phone}GitHub{/a},"
-        "mc" "make a post on the phone's {a=https://elckarow.itch.io/better-emr-phone}Itch page{/a}."
+        "me" "In case you encounter an issue (or wanna make a suggestion),"
+        "me" "you can:"
+        "me" "DM me at {i}elckarow{/i} on Discord,"
+        "me" "open an issue on {a=https://github.com/Elckarow/Better-EMR-Phone}GitHub{/a},"
+        "me" "make a post on the phone's {a=https://elckarow.itch.io/better-emr-phone}Itch page{/a}."
         "s" "Happy coding!" 
     phone end discussion
 
@@ -56,7 +56,7 @@ label phone_discussion_test:
 label phone_call_test:
     phone call "s"
     phone_s "Ohayouuu!!!!!!!!!!!!!!!!"
-    phone_mc "Hey!"
+    phone_me "Hey!"
     "Why is she always this energetic?"
     phone end call
     "..."
@@ -77,11 +77,11 @@ label phone_video_call_test:
 
     phone_gf "..."
     phone_gf "Why are you calling me on video right now?"
-    phone_mc "I wanted you to see my face when I say this."
-    phone_mc "I'm sorry. I really am."
+    phone_me "I wanted you to see my face when I say this."
+    phone_me "I'm sorry. I really am."
     phone_gf "..."
     phone_gf "You look terrible, by the way."
-    phone_mc "Yeah. I haven't slept."
+    phone_me "Yeah. I haven't slept."
 
     # 3. 통화 종료
     phone end call

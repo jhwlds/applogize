@@ -39,7 +39,7 @@ default stage2_face_data = {}   # tracker session data for Stage 2
 ## Characters ##################################################################
 
 define gf = Character("Girlfriend", color="#ff6b9d", what_color="#000000")
-define mc = Character("Me", color="#4a90d9", what_color="#000000")
+define me = Character("Me", color="#4a90d9", what_color="#000000")
 
 ## Placeholder Images ##########################################################
 
@@ -608,16 +608,44 @@ label start:
 
     $ quick_menu = False
 
-    call screen character_select_screen
+    call screen character_select_screen with Dissolve(1.0)
     $ player_gender = _return
 
     # 페이드 아웃 효과가 보이도록 잠시 대기 후 영상 재생
     pause 1.2
 
-    # Intro video (click or key to skip). Use .mkv with Opus audio; Ren'Py does not support AAC.
-    $ renpy.movie_cutscene("video/intro_video.mkv", stop_music=True)
+    # First intro: fade in from black, then fade out to black.
+    show expression Movie(play="video/intro_video.mkv", loop=False, size=(1920, 1080), channel="movie") as intro_first
+    $ renpy.music.set_volume(0.0, 0.0, "movie")
+    with Dissolve(0.5)
+    $ renpy.music.set_volume(1.0, 0.5, "movie")
+    $ renpy.pause(6.0, hard=True)
+    $ renpy.music.stop(channel="movie", fadeout=0.5)
+    show expression Solid("#000") as intro_fade
+    with Dissolve(0.5)
+    $ renpy.pause(0.5, hard=True)
+    hide intro_first
+    hide intro_fade
 
-    $ renpy.movie_cutscene("video/we_are_done.mkv", stop_music=True)
+    scene bg_black
+    with Dissolve(0.6)
+    show text "{size=56}{color=#ffffff}Few hours later...{/color}{/size}" at truecenter
+    with Dissolve(0.5)
+    pause 2.0
+    hide text
+    with Dissolve(0.8)
+
+    show expression Movie(play="video/we_are_done.mkv", loop=False, size=(1920, 1080), channel="movie") as intro_second
+    $ renpy.music.set_volume(0.0, 0.0, "movie")
+    with Dissolve(0.8)
+    $ renpy.music.set_volume(1.0, 0.8, "movie")
+    $ renpy.pause(4.2, hard=True)
+    $ renpy.music.stop(channel="movie", fadeout=0.5)
+    show expression Solid("#000") as intro_fade
+    with Dissolve(0.5)
+    $ renpy.pause(0.5, hard=True)
+    hide intro_second
+    hide intro_fade
 
     jump stage1
 
@@ -636,8 +664,8 @@ label stage1:
 
     $ quick_menu = True
 
-    mc "(What did I do wrong...?)"
-    mc "(Let me check my phone for clues.)"
+    me "(What did I do wrong...?)"
+    me "(Let me check my phone for clues then make a phone call to her.)"
 
     $ quick_menu = False
 
@@ -709,7 +737,7 @@ label stage1_call:
     phone call "gf"
     phone_gf "..."
     phone_gf "Why are you calling me right now?"
-    phone_mc "I know you're upset. I want to explain."
+    phone_me "I know you're upset. I want to explain."
     phone_gf "Fine. Tell me — why do you think I'm angry?"
 
     $ _call_overlay_result = ""
@@ -773,7 +801,7 @@ label stage1_wrong:
     if gf_hint:
         gf "[gf_hint]"
 
-    mc "(No, that wasn't it... Let me think again.)"
+    me "(No, that wasn't it... Let me think again.)"
 
     hide gf
     with dissolve
@@ -799,7 +827,7 @@ label stage1_correct:
 
     gf "You know exactly what you did wrong, and that’s how you apologize?"
 
-    mc "(I figured it out. Now I need to actually apologize.)"
+    me "(I figured it out. Now I need to actually apologize.)"
 
     hide gf
     with dissolve
@@ -824,7 +852,7 @@ label stage2:
     phone call "gf" video
 
     $ quick_menu = True
-    phone_mc "(Her anger is rising... I need to bring it down!)"
+    phone_me "(Her anger is rising... I need to bring it down!)"
 
     $ quick_menu = False
 
@@ -893,10 +921,10 @@ label stage2_success:
     gf "...Okay."
     gf "I'll let it go this time."
 
-    mc "I'm truly sorry. I promise this won't happen again."
+    me "I'm truly sorry. I promise this won't happen again."
 
     gf "You promise?"
-    mc "I promise."
+    me "I promise."
 
     hide gf
     with dissolve
@@ -922,7 +950,7 @@ label check_rescue:
 
     menu:
         "Grab one last chance":
-            mc "(One more shot. I can't mess this up!)"
+            me "(One more shot. I can't mess this up!)"
             $ quick_menu = False
             $ in_rescue_mission = True
             if stage == 1:
