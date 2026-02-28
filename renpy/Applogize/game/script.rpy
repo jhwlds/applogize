@@ -191,6 +191,19 @@ exec "$TRACKER_DIR/.venv/bin/python3" tracker.py
         except Exception as e:
             renpy.notify("Could not start camera: " + str(e)[:50])
 
+    def run_tracker_stop():
+        """Kill the tracker (camera) process."""
+        import subprocess
+        import sys
+        try:
+            if sys.platform == "darwin":
+                # pkill kills process by command line match (tracker.py)
+                subprocess.run(["pkill", "-f", "tracker.py"], capture_output=True, timeout=2)
+            elif sys.platform == "win32":
+                subprocess.run(["taskkill", "/F", "/FI", "WINDOWTITLE eq*tracker*"], capture_output=True, timeout=2)
+        except Exception:
+            pass
+
     class RunTrackerAction(renpy.store.Action):
         """Start tracker (camera) in background."""
         def __call__(self):

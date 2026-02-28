@@ -474,6 +474,17 @@ screen apology_input_screen():
                 text_xalign 0.5
                 action Return("great")
 
+            textbutton "End to Response":
+                xsize 200
+                ysize 65
+                xpadding 10
+                background Solid("#4e1e1e")
+                hover_background Solid("#6e2e2e")
+                text_size 20
+                text_color "#ffffff"
+                text_xalign 0.5
+                action Function(run_tracker_stop)
+
 
 ################################################################################
 ## Ending - Game Over
