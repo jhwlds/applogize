@@ -467,6 +467,9 @@ label start:
     call screen character_select_screen
     $ player_gender = _return
 
+    # 페이드 아웃 효과가 보이도록 잠시 대기 후 영상 재생
+    pause 1.2
+
     # Intro video (click or key to skip). Use .mkv with Opus audio; Ren'Py does not support AAC.
     $ renpy.movie_cutscene("video/intro_video.mkv", stop_music=True)
 
