@@ -647,13 +647,8 @@ screen apology_input_screen():
         text_color "#ffcccc"
         action [SetVariable("rage_gauge", 100), Return("end_response")]
 
-    # Call timer tick + idle tick
-    timer 1.0 repeat True action [
-        SetVariable("videocall_duration", videocall_duration + 1),
-        SetVariable("idle_seconds", idle_seconds + 1)
-    ]
-    if idle_seconds >= 30:
-        timer 0.1 action [SetVariable("idle_seconds", 0), Return("idle_warning")]
+    # Call timer tick (Stage 2: no idle warning, only videocall duration)
+    timer 1.0 repeat True action SetVariable("videocall_duration", videocall_duration + 1)
 
 
 ################################################################################

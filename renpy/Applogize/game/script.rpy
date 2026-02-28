@@ -16,6 +16,7 @@ default timer_seconds = 180
 default timer_running = False
 default rescue_used = False
 default in_rescue_mission = False
+default allow_phone_idle_warning = False  # True only after first call (so not during initial 180s)
 
 ## Voice guess (Stage 1) – STT via speechemotionanalysis server /analyze; answer check via server
 default analyze_url = "http://localhost:19000/analyze"
@@ -507,6 +508,8 @@ label stage1_phone_loop:
         jump stage1_phone_loop
 
 label stage1_phone_after_call:
+    $ allow_phone_idle_warning = True
+    $ idle_seconds = 0
     call screen phone_main_screen
 
     if _return == "make_call":
@@ -540,7 +543,7 @@ label stage1_idle_warning:
 
     $ quick_menu = False
     $ idle_seconds = 0
-    jump stage1_phone_loop
+    jump stage1_phone_after_call
 
 label stage1_timeout:
     $ timer_running = False
@@ -567,11 +570,11 @@ label stage1_call:
 
     phone end call
 
-    $ _r = _return if _return else _call_overlay_result
-    $ print(f"[stage1_call] _return={_return!r} _call_overlay_result={_call_overlay_result!r}", flush=True)
-    if _r == "back_to_phone":
+    if _return == "back_to_phone":
         jump stage1_phone_after_call
-    elif _r == "correct" or _r == "skip":
+    elif _return == "correct":
+        jump stage1_correct
+    elif _return == "skip":
         jump stage1_correct
     else:
         jump stage1_wrong
@@ -589,10 +592,11 @@ label stage1_call_retry:
 
     phone end call
 
-    $ _r = _return if _return else _call_overlay_result
-    if _r == "back_to_phone":
+    if _return == "back_to_phone":
         jump stage1_phone_after_call
-    elif _r == "correct" or _r == "skip":
+    elif _return == "correct":
+        jump stage1_correct
+    elif _return == "skip":
         jump stage1_correct
     else:
         jump stage1_wrong
@@ -687,12 +691,6 @@ label stage2_loop:
         show gf angry2 at truecenter
         with vpunch
         gf "You call that an apology?!"
-    elif result == "idle_warning":
-        $ rage_gauge = min(100, rage_gauge + 5)
-        scene bg_videocall
-        show gf angry1 at truecenter
-        with vpunch
-        gf "Are you spacing out right now?"
     elif result == "end_response":
         if rage_gauge < 100:
             scene bg_videocall
