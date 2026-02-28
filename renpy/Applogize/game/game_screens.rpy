@@ -630,8 +630,8 @@ screen apology_input_screen():
         SetVariable("videocall_duration", videocall_duration + 1),
         SetVariable("idle_seconds", idle_seconds + 1)
     ]
-    if idle_seconds >= 30:
-        timer 0.1 action [SetVariable("idle_seconds", 0), Return("idle_warning")]
+    # if idle_seconds >= 30:
+    #     timer 0.1 action [SetVariable("idle_seconds", 0), Return("idle_warning")]
 
 
 ################################################################################
