@@ -1064,6 +1064,15 @@ def run(args: argparse.Namespace) -> int:
     last_json_ms = 0.0
     json_interval_ms = 1000.0 / max(1.0, float(args.json_rate_hz))
 
+    output_file = getattr(args, "output_file", None)
+    smile_count = 0
+    heart_detected_once = False
+    smile_was_above = False
+    SMILE_EVENT_THRESHOLD = 0.50
+    SMILE_EVENT_RESET = 0.35
+    last_output_write_ms = 0.0
+    OUTPUT_WRITE_INTERVAL_MS = 500.0  # write smile_count to file every 0.5s
+
     debug = bool(args.debug)
     heart_params = heart_params_from_sensitivity(float(getattr(args, "heart_sensitivity", 1.0)))
 
@@ -1186,6 +1195,14 @@ def run(args: argparse.Namespace) -> int:
             a = ema_alpha(dt_ms, SCORE_TAU_MS)
             smoothed.smile = clamp01(smoothed.smile + a * (raw_smile - smoothed.smile))
             smoothed.sadness = clamp01(smoothed.sadness + a * (raw_sadness - smoothed.sadness))
+
+            # Smile event counting (for output_file / Ren'Py integration)
+            if output_file:
+                if smile_was_above and smoothed.smile < SMILE_EVENT_RESET:
+                    smile_was_above = False
+                elif not smile_was_above and smoothed.smile >= SMILE_EVENT_THRESHOLD:
+                    smile_count += 1
+                    smile_was_above = True
             smoothed.look_away_score = clamp01(smoothed.look_away_score + a * (raw_look_away - smoothed.look_away_score))
             smoothed.looking_away = update_looking_away_bool(smoothed.looking_away, smoothed.look_away_score)
             smoothed.hand_present = bool(hand_present)
@@ -1193,6 +1210,8 @@ def run(args: argparse.Namespace) -> int:
             smoothed.thumbs_up = bool(hand_present and raw_thumbs_up)
             smoothed.heart_score = clamp01(smoothed.heart_score + a * (float(raw_heart_score) - smoothed.heart_score))
             smoothed.heart = bool(hand_present and update_heart_bool(smoothed.heart, smoothed.heart_score, params=heart_params))
+            if smoothed.heart:
+                heart_detected_once = True
 
             next_dialog = pick_dialog_line_with_hand(
                 face_present,
@@ -1227,7 +1246,7 @@ def run(args: argparse.Namespace) -> int:
                 gesture = "OPEN_PALM"
 
             hud_lines = [
-                f"Smile: {smoothed.smile:.2f}",
+                f"Smile: {smoothed.smile:.2f}" + (f"  Events: {smile_count}" if output_file else ""),
                 f"Sad: {smoothed.sadness:.2f}",
                 f"LookAway: {smoothed.look_away_score:.2f}  LookingAway: {'YES' if smoothed.looking_away else 'NO'}",
                 f"Hand: {'YES' if smoothed.hand_present else 'NO'}  Gesture: {gesture}  Heart: {smoothed.heart_score:.2f}",
@@ -1244,6 +1263,19 @@ def run(args: argparse.Namespace) -> int:
                 hud_lines.append("Quit: q/esc   Recalibrate: c")
             put_hud_lines(frame_bgr, hud_lines)
             put_dialog(frame_bgr, dialog_line)
+
+            # Periodic write of smile_count to output file (so Ren'Py can read after pkill)
+            if output_file and (now_ms - last_output_write_ms) >= OUTPUT_WRITE_INTERVAL_MS:
+                last_output_write_ms = now_ms
+                try:
+                    out_path = os.path.abspath(os.path.expanduser(output_file))
+                    out_dir = os.path.dirname(out_path)
+                    if out_dir:
+                        os.makedirs(out_dir, exist_ok=True)
+                    with open(out_path, "w", encoding="utf-8") as f:
+                        json.dump({"smile_count": smile_count, "heart_detected": heart_detected_once}, f, ensure_ascii=False)
+                except Exception:  # noqa: BLE001
+                    pass
 
             # Optional JSON Lines (for Ren'Py later)
             if json_enabled and (now_ms - last_json_ms) >= json_interval_ms:
@@ -1275,6 +1307,16 @@ def run(args: argparse.Namespace) -> int:
                 calib.reset(now_ms)
 
     finally:
+        if output_file:
+            try:
+                out_path = os.path.abspath(os.path.expanduser(output_file))
+                out_dir = os.path.dirname(out_path)
+                if out_dir:
+                    os.makedirs(out_dir, exist_ok=True)
+                with open(out_path, "w", encoding="utf-8") as f:
+                    json.dump({"smile_count": smile_count, "heart_detected": heart_detected_once}, f, ensure_ascii=False)
+            except Exception as e:  # noqa: BLE001
+                print(f"[tracker] Failed to write output file: {e}", file=sys.stderr)
         cap.release()
         cv2.destroyAllWindows()
         try:
@@ -1320,6 +1362,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p.add_argument("--json", action="store_true", help="Print JSON Lines to stdout (Ren'Py sidecar integration)")
     p.add_argument("--json-rate-hz", type=float, default=12.5, help="JSON output rate (default: 12.5Hz)")
+    p.add_argument(
+        "--output-file",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Write smile_count JSON to file on exit (for Ren'Py)",
+    )
 
     p.add_argument("--debug", action="store_true", default=False, help="Show extra HUD/debug help")
     p.add_argument("--window-title", type=str, default="FaceMotion Tracker", help="OpenCV window title")
