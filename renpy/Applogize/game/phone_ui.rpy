@@ -31,7 +31,7 @@ screen phone_main_screen():
         yfill True
         add "images/characters/room.jpg" fit "cover"
 
-    # --- HUD: Timer + Energy + Clue count (above phone) ---
+    # --- HUD: Timer + Clue count (above phone) ---
     if timer_running:
         frame:
             xalign 0.5
@@ -54,9 +54,12 @@ screen phone_main_screen():
                     yalign 0.5
 
         timer 1.0 repeat True action SetVariable("timer_seconds", max(0, timer_seconds - 1))
+        timer 1.0 repeat True action SetVariable("idle_seconds", idle_seconds + 1)
 
         if timer_seconds <= 0:
             timer 0.1 action Return("timeout")
+        elif idle_seconds >= 30:
+            timer 0.1 action [SetVariable("idle_seconds", 0), Return("idle_warning")]
 
     # --- Phone: Better EMR Phone _phone() base ---
     fixed:
