@@ -4,6 +4,19 @@
 
 # 전역으로 현재 앱 상태를 관리.
 default current_app = "home"
+default gallery_photos = [
+    "images/clues/photo_1.png",
+    "images/clues/photo_2.png",
+    "images/clues/photo_3.png",
+    "images/clues/photo_4.png",
+    "images/clues/photo_5.png",
+    "images/clues/photo_6.png",
+]
+
+transform phone_ui_scale:
+    xalign 0.5
+    yalign 0.5
+    zoom 1.1
 
 
 screen phone_main_screen():
@@ -11,6 +24,7 @@ screen phone_main_screen():
 
     default instagram_tab = "feed"
     default gallery_tab = "photos"
+    default gallery_zoom_photo = None
 
     fixed:
         xfill True
@@ -45,48 +59,61 @@ screen phone_main_screen():
             timer 0.1 action Return("timeout")
 
     # --- Phone: Better EMR Phone _phone() base ---
-    use _phone(xpos=0.5, xanchor=0.5, ypos=0.5, yanchor=0.5):
-        vbox:
-            xfill True
-            yfill True
+    fixed:
+        xfill True
+        yfill True
+        at phone_ui_scale
 
-            # Reserve space for status bar so content doesn't overlap
-            null height gui.phone_status_bar_height
-
-            # App content area
-            frame:
+        use _phone(xpos=0.5, xanchor=0.5, ypos=0.5, yanchor=0.5):
+            vbox:
                 xfill True
                 yfill True
-                background Solid("#0a0a16")
-                xpadding 0
-                ypadding 0
 
-                if current_app == "home":
-                    use phone_home_content
-                elif current_app == "instagram":
-                    use phone_instagram_content(instagram_tab=instagram_tab)
-                elif current_app == "gallery":
-                    use phone_gallery_content(gallery_tab=gallery_tab)
-                elif current_app == "calendar":
-                    use phone_calendar_content
-                elif current_app == "creditcard":
-                    use phone_creditcard_content
-                elif current_app == "memo":
-                    use phone_memo_content
+                # Reserve space for status bar so content doesn't overlap
+                null height gui.phone_status_bar_height
 
-            # Home button bar
-            frame:
-                xfill True
-                ysize 44
-                background Solid("#111118")
+                # App content area
+                frame:
+                    xfill True
+                    yfill True
+                    background None
+                    xpadding 0
+                    ypadding 0
+                    has fixed
 
-                textbutton "---":
-                    xalign 0.5
-                    yalign 0.5
-                    text_size 18
-                    text_color "#444444"
-                    text_hover_color "#ffffff"
-                    action SetScreenVariable("current_app", "home")
+                    # Phone wallpaper (auto-fit to the content area).
+                    add "images/ui/screen_wallpaper.png" fit "cover"
+
+                    # Dim layer above wallpaper when an app is open.
+                    if current_app != "home":
+                        add Solid("#00000088")
+
+                    if current_app == "home":
+                        use phone_home_content
+                    elif current_app == "instagram":
+                        use phone_instagram_content(instagram_tab=instagram_tab)
+                    elif current_app == "gallery":
+                        use phone_gallery_content(gallery_tab=gallery_tab)
+                    elif current_app == "calendar":
+                        use phone_calendar_content
+                    elif current_app == "creditcard":
+                        use phone_creditcard_content
+                    elif current_app == "memo":
+                        use phone_memo_content
+
+                # Home button bar
+                frame:
+                    xfill True
+                    ysize 44
+                    background Solid("#111118")
+
+                    textbutton "---":
+                        xalign 0.5
+                        yalign 0.5
+                        text_size 18
+                        text_color "#444444"
+                        text_hover_color "#ffffff"
+                        action SetScreenVariable("current_app", "home")
 
     # --- "Make Guess" button (outside phone) ---
     frame:
@@ -150,13 +177,18 @@ screen phone_home_content():
                                     xsize 76
                                     ysize 76
                                     xalign 0.5
-                                    background Solid("#e1306c")
-                                    hover_background Solid("#f0508c")
+                                    background None
+                                    hover_background None
                                     action SetScreenVariable("current_app", "instagram")
 
-                                    text "IG" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
+                                    add "images/ui/icons/Instagram_icon.png":
+                                        fit "contain"
+                                        xalign 0.5
+                                        yalign 0.5
+                                        xsize 76
+                                        ysize 76
 
-                                text "Instagram" size 12 color "#cccccc" xalign 0.5
+                                text "Instagram" size 13 color "#ffffff" xalign 0.5 bold True outlines [(2, "#00000088", 0, 0)]
 
                             # Gallery
                             vbox:
@@ -167,13 +199,18 @@ screen phone_home_content():
                                     xsize 76
                                     ysize 76
                                     xalign 0.5
-                                    background Solid("#34a853")
-                                    hover_background Solid("#54c873")
+                                    background None
+                                    hover_background None
                                     action SetScreenVariable("current_app", "gallery")
 
-                                    text "Pic" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
+                                    add "images/ui/icons/photos_icon.png":
+                                        fit "contain"
+                                        xalign 0.5
+                                        yalign 0.5
+                                        xsize 76
+                                        ysize 76
 
-                                text "Gallery" size 12 color "#cccccc" xalign 0.5
+                                text "Gallery" size 13 color "#ffffff" xalign 0.5 bold True outlines [(2, "#00000088", 0, 0)]
 
                             # Calendar
                             vbox:
@@ -184,13 +221,18 @@ screen phone_home_content():
                                     xsize 76
                                     ysize 76
                                     xalign 0.5
-                                    background Solid("#ea4335")
-                                    hover_background Solid("#ff6355")
+                                    background None
+                                    hover_background None
                                     action SetScreenVariable("current_app", "calendar")
 
-                                    text "Cal" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
+                                    add "images/ui/icons/calendar_icon.png":
+                                        fit "contain"
+                                        xalign 0.5
+                                        yalign 0.5
+                                        xsize 76
+                                        ysize 76
 
-                                text "Calendar" size 12 color "#cccccc" xalign 0.5
+                                text "Calendar" size 13 color "#ffffff" xalign 0.5 bold True outlines [(2, "#00000088", 0, 0)]
 
                             # Credit Card
                             vbox:
@@ -201,13 +243,18 @@ screen phone_home_content():
                                     xsize 76
                                     ysize 76
                                     xalign 0.5
-                                    background Solid("#1a237e")
-                                    hover_background Solid("#3a439e")
+                                    background None
+                                    hover_background None
                                     action SetScreenVariable("current_app", "creditcard")
 
-                                    text "Pay" size 24 color "#ffffff" xalign 0.5 yalign 0.5 bold True
+                                    add "images/ui/icons/wallet_icon.png":
+                                        fit "contain"
+                                        xalign 0.5
+                                        yalign 0.5
+                                        xsize 76
+                                        ysize 76
 
-                                text "Credit Card" size 12 color "#cccccc" xalign 0.5
+                                text "Credit Card" size 13 color "#ffffff" xalign 0.5 bold True outlines [(2, "#00000088", 0, 0)]
 
                             # Memo
                             vbox:
@@ -218,13 +265,18 @@ screen phone_home_content():
                                     xsize 76
                                     ysize 76
                                     xalign 0.5
-                                    background Solid("#fdd835")
-                                    hover_background Solid("#ffee55")
+                                    background None
+                                    hover_background None
                                     action SetScreenVariable("current_app", "memo")
 
-                                    text "Memo" size 20 color "#333333" xalign 0.5 yalign 0.5 bold True
+                                    add "images/ui/icons/note_icon.png":
+                                        fit "contain"
+                                        xalign 0.5
+                                        yalign 0.5
+                                        xsize 76
+                                        ysize 76
 
-                                text "Notes" size 12 color "#cccccc" xalign 0.5
+                                text "Memo" size 13 color "#ffffff" xalign 0.5 bold True outlines [(2, "#00000088", 0, 0)]
 
                             # Empty cell
                             null
@@ -413,20 +465,16 @@ screen phone_gallery_content(gallery_tab="photos"):
 
             hbox:
                 xalign 0.5
-                spacing 40
+                spacing 0
                 yalign 0.5
 
-                textbutton "Photos":
+                textbutton "Recent Photos":
+                    xsize 300
+                    text_xalign 0.5
                     text_size 14
-                    text_color ("#ffffff" if gallery_tab == "photos" else "#666666")
+                    text_color "#ffffff"
                     text_hover_color "#ffffff"
                     action SetScreenVariable("gallery_tab", "photos")
-
-                textbutton "Screenshots":
-                    text_size 14
-                    text_color ("#ffffff" if gallery_tab == "screenshots" else "#666666")
-                    text_hover_color "#ffffff"
-                    action SetScreenVariable("gallery_tab", "screenshots")
 
         viewport:
             xfill True
@@ -445,65 +493,73 @@ screen phone_gallery_content(gallery_tab="photos"):
                     spacing 8
 
                     if gallery_tab == "photos":
-                        text "Recent Photos" size 13 color "#888888"
-
                         grid 3 2:
                             xalign 0.5
                             spacing 6
 
-                            button:
-                                xsize 125
-                                ysize 125
-                                background Solid("#4a2a5e")
-                                hover_background Solid("#6a4a7e")
-                                action Function(add_clue, "gallery_date_photo")
-
-                                vbox:
-                                    xalign 0.5
-                                    yalign 0.5
-                                    spacing 4
-                                    text "DATE" size 14 color "#ffffff" xalign 0.5 bold True
-                                    text "Tokyo Trip" size 10 color "#cccccc" xalign 0.5
-                                    if "gallery_date_photo" in found_clues:
-                                        text "[[CLUE]]" size 9 color "#44ff44" xalign 0.5
-
-                            for i in range(5):
-                                frame:
+                            for photo_path in gallery_photos:
+                                button:
                                     xsize 125
                                     ysize 125
-                                    background Solid("#2a2a3e")
-                                    text "img" size 14 color "#444444" xalign 0.5 yalign 0.5
+                                    background Solid("#1f1f2f")
+                                    hover_background Solid("#2f2f4a")
+                                    action SetScreenVariable("gallery_zoom_photo", photo_path)
 
-                    elif gallery_tab == "screenshots":
-                        text "Screenshots" size 13 color "#888888"
+                                    if renpy.loadable(photo_path):
+                                        add photo_path:
+                                            fit "cover"
+                                            xsize 125
+                                            ysize 125
+                                    else:
+                                        vbox:
+                                            xalign 0.5
+                                            yalign 0.5
+                                            spacing 4
+                                            text "PHOTO" size 14 color "#bbbbbb" xalign 0.5 bold True
+                                            text photo_path.split("/")[-1] size 9 color "#888888" xalign 0.5
 
-                        button:
-                            xfill True
-                            ysize 170
-                            xpadding 15
-                            ypadding 12
-                            background Solid("#1e2a3e")
-                            hover_background Solid("#2e3a5e")
-                            action Function(add_clue, "gallery_ticket")
+    if gallery_zoom_photo:
+        use phone_gallery_photo_zoom(photo_path=gallery_zoom_photo)
 
-                            vbox:
-                                spacing 6
-                                text "FLIGHT TICKET" size 15 color "#4a90d9" bold True
-                                text "Tokyo - One Way" size 13 color "#ffffff"
-                                text "Passenger: 1" size 13 color "#ff6b6b"
-                                text "Date: 2026.03.02" size 13 color "#aaaaaa"
-                                if "gallery_ticket" in found_clues:
-                                    text "[[ CLUE FOUND ]]" size 11 color "#44ff44"
 
-                        null height 8
+screen phone_gallery_photo_zoom(photo_path):
+    modal True
+    zorder 120
 
-                        frame:
-                            xfill True
-                            ysize 60
-                            background Solid("#2a2a3e")
-                            xpadding 15
-                            ypadding 10
-                            text "Game score screenshot" size 13 color "#666666" yalign 0.5
+    add Solid("#000000cc")
+
+    frame:
+        xalign 0.5
+        yalign 0.5
+        xsize 380
+        ysize 520
+        background Solid("#101018")
+        xpadding 12
+        ypadding 12
+
+        has vbox
+        spacing 8
+
+        if renpy.loadable(photo_path):
+            add photo_path:
+                fit "contain"
+                xalign 0.5
+                yalign 0.5
+                xsize 356
+                ysize 456
+        else:
+            frame:
+                xfill True
+                ysize 456
+                background Solid("#222233")
+                text "Missing: [photo_path]" size 13 color "#bbbbbb" xalign 0.5 yalign 0.5
+
+        textbutton "Close":
+            xalign 1.0
+            text_size 14
+            text_color "#ffffff"
+            text_hover_color "#dddddd"
+            action SetScreenVariable("gallery_zoom_photo", None)
 
 
 ################################################################################
@@ -730,7 +786,7 @@ screen phone_memo_content():
                             text "- Wants to go on a trip to Tokyo" size 13 color "#ffffff"
                             text "- Promised to travel together for" size 13 color "#ffffff"
                             text "  our anniversary" size 13 color "#ffffff"
-                            text "- Fav food: ramen, sushi" size 13 color "#cccccc"
+                            text "- Fav food: anything with chicken" size 13 color "#cccccc"
                             text "- Wants: limited edition perfume" size 13 color "#cccccc"
                             null height 4
                             if "memo_preference" in found_clues:
@@ -769,16 +825,21 @@ screen phone_app_header(title="App"):
         background Solid("#14141e")
         xpadding 10
 
-        hbox:
-            yalign 0.5
+        fixed:
             xfill True
+            yfill True
 
             textbutton "< Back":
+                xalign 0.0
+                yalign 0.5
                 text_size 14
                 text_color "#aaaaaa"
                 text_hover_color "#ffffff"
                 action SetScreenVariable("current_app", "home")
 
-            text "[title]" size 18 color "#ffffff" xalign 0.5 bold True
-
-            null xsize 60
+            text "[title]":
+                xalign 0.5
+                yalign 0.5
+                size 18
+                color "#ffffff"
+                bold True
