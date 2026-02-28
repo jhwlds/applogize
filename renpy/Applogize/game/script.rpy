@@ -6,7 +6,7 @@
 
 default energy = 20
 default max_energy = 20
-default apology_gauge = 50
+default rage_gauge = 50
 default stage = 0
 default player_gender = None
 default found_clues = set()
@@ -71,17 +71,19 @@ init python:
             else:
                 return "#ff6666"
         else:
-            g = store.apology_gauge
-            if g >= 100:
-                return "#ffd700"
-            elif g >= 75:
+            g = store.rage_gauge
+            # In Stage 2, rage_gauge represents anger:
+            # 0 = calm, 100 = maximum anger.
+            if g <= 0:
+                return "#ffd700"   # calm / best state
+            elif g <= 25:
                 return "#88cc33"
-            elif g >= 50:
+            elif g <= 50:
                 return "#33cc33"
-            elif g >= 25:
+            elif g <= 75:
                 return "#ff6666"
             else:
-                return "#cc3333"
+                return "#cc3333"   # very angry
 
     def format_timer(seconds):
         m = seconds // 60
@@ -345,7 +347,7 @@ label stage1_correct:
 
 label stage2:
     $ stage = 2
-    $ apology_gauge = 50
+    $ rage_gauge = 50
     $ quick_menu = False
 
     scene bg_videocall
@@ -357,7 +359,7 @@ label stage2:
     gf "..."
 
     mc "(Time for a video call apology. I need to mean it...)"
-    mc "(Get the apology gauge to 100 to make things right!)"
+    mc "(Her anger is rising... I need to bring it down!)"
 
     $ quick_menu = False
 
@@ -368,33 +370,33 @@ label stage2_loop:
     $ quick_menu = True
 
     if result == "great":
-        $ apology_gauge = min(100, apology_gauge + 25)
+        $ rage_gauge = max(0, rage_gauge - 25)
         scene bg_videocall
         show gf normal at truecenter
         with dissolve
         gf "...Keep going."
     elif result == "good":
-        $ apology_gauge = min(100, apology_gauge + 15)
+        $ rage_gauge = max(0, rage_gauge - 15)
         scene bg_videocall
         show gf normal at truecenter
         with dissolve
         gf "..."
     elif result == "bad":
-        $ apology_gauge = max(0, apology_gauge - 20)
+        $ rage_gauge = min(100, rage_gauge + 20)
         $ energy -= 5
         scene bg_videocall
         show gf angry2 at truecenter
         with vpunch
         gf "You call that an apology?!"
     else:
-        $ apology_gauge = max(0, apology_gauge - 5)
+        $ rage_gauge = min(100, rage_gauge + 5)
         gf "..."
 
     $ quick_menu = False
 
-    if apology_gauge >= 100:
+    if rage_gauge <= 0:
         jump stage2_success
-    elif apology_gauge <= 0 or energy <= 0:
+    elif rage_gauge >= 100 or energy <= 0:
         jump check_rescue
     else:
         jump stage2_loop
@@ -442,7 +444,7 @@ label check_rescue:
                     $ timer_seconds = 180
                     jump stage1_phone_loop
                 else:
-                    $ apology_gauge = 30
+                    $ rage_gauge = 30
                     jump stage2_loop
             "Give up...":
                 jump ending_gameover
