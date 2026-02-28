@@ -135,10 +135,13 @@ def analyze(file: UploadFile = File(...)) -> Dict[str, Any]:
 
     emotions = _extract_emotions(predictions)
     target_emotions = _select_target_emotions(emotions, TARGET_EMOTION_KEYS)
+    transcript, transcript_segments = _extract_transcript(predictions)
 
     return {
         "file_id": file_id,
         "raw_hume_job_id": job_id,
+        "transcript": transcript,
+        "transcript_segments": transcript_segments,
         "emotions": target_emotions,
     }
 
@@ -185,6 +188,10 @@ def _start_hume_job(api_key: str, media_url: str) -> str:
             "prosody": {
                 "granularity": "utterance",
             }
+        },
+        "transcription": {
+            "language": "en",
+            "confidence_threshold": 0.0,
         },
     }
 
@@ -278,6 +285,50 @@ def _extract_emotions(predictions: Any) -> List[Dict[str, float]]:
         if counts[name] > 0
     ]
     return averaged
+
+
+def _extract_transcript(predictions: Any) -> tuple[str, List[Dict[str, Any]]]:
+    segments: List[Dict[str, Any]] = []
+    seen: set[tuple[str, float | None, float | None]] = set()
+
+    for node in _walk_nodes(predictions):
+        text = node.get("text")
+        if not isinstance(text, str):
+            continue
+
+        cleaned_text = text.strip()
+        if not cleaned_text:
+            continue
+
+        begin: float | None = None
+        end: float | None = None
+        time_info = node.get("time")
+        if isinstance(time_info, dict):
+            if isinstance(time_info.get("begin"), (int, float)):
+                begin = float(time_info["begin"])
+            if isinstance(time_info.get("end"), (int, float)):
+                end = float(time_info["end"])
+
+        unique_key = (cleaned_text, begin, end)
+        if unique_key in seen:
+            continue
+        seen.add(unique_key)
+
+        segment: Dict[str, Any] = {"text": cleaned_text}
+        if begin is not None:
+            segment["begin"] = begin
+        if end is not None:
+            segment["end"] = end
+
+        confidence = node.get("confidence")
+        if isinstance(confidence, (int, float)):
+            segment["confidence"] = float(confidence)
+
+        segments.append(segment)
+
+    segments.sort(key=lambda s: (s.get("begin", float("inf")), s["text"]))
+    transcript = " ".join(segment["text"] for segment in segments).strip()
+    return transcript, segments
 
 
 def _walk_nodes(node: Any) -> Iterable[Dict[str, Any]]:
