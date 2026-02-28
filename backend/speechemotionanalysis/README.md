@@ -1,7 +1,7 @@
 # Speech Emotion Analysis (Hume Prosody)
 
 ## 개요
-이 서비스는 `wav` 파일 1개를 받아 Hume prosody 분석을 수행하고, 지정한 감정 지표 점수만 반환합니다.
+이 서비스는 `wav` 파일 1개를 받아 Hume prosody 분석을 수행하고, 전사 텍스트와 지정한 감정 지표 점수를 반환합니다.
 
 ## 폴더 파일 구성 및 역할
 - `server.py`
@@ -49,6 +49,15 @@
 {
   "file_id": "string",
   "raw_hume_job_id": "string",
+  "transcript": "string",
+  "transcript_segments": [
+    {
+      "text": "string",
+      "begin": 0.0,
+      "end": 0.0,
+      "confidence": 0.0
+    }
+  ],
   "emotions": {
     "calmness": 0.0,
     "relief": 0.0,
@@ -115,8 +124,23 @@ powershell -ExecutionPolicy Bypass -File .\run_server.ps1 -Port 19000
 ```
 
 ## 테스트 요청
+
+### m4a 파일을 wav로 변환하기
+`/analyze`는 wav만 받기 때문에 m4a는 먼저 변환해야 합니다.
+
+1. ffmpeg 설치 (Windows):
 ```powershell
-curl.exe -X POST "http://127.0.0.1:19000/analyze" -F "file=@C:\path\sample.wav"
+winget install --id Gyan.FFmpeg -e
+```
+
+2. m4a -> wav 변환 (권장 포맷: 16kHz mono 16-bit PCM):
+```powershell
+ffmpeg -i .\uploads\{input 파일이름}.m4a -ac 1 -ar 16000 -sample_fmt s16 .\uploads\{output 파일이름}.wav
+```
+
+### 변환된 wav로 분석 요청
+```powershell
+curl.exe -X POST "http://127.0.0.1:19000/analyze" -F "file=@C:\Users\minjo\GitHub\applogize\speechemotionanalysis\uploads\2.wav"
 ```
 
 ## 협업 시 참고
