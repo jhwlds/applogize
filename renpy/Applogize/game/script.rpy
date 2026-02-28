@@ -251,33 +251,17 @@ init python:
             venv_python = "python3" if sys.platform != "win32" else "python"
         try:
             if sys.platform == "darwin":
-                # macOS: use .app bundle so it runs with full GUI permissions (no Terminal)
-                app_path = os.path.join(tracker_dir, "Tracker.app")
-                macos_dir = os.path.join(app_path, "Contents", "MacOS")
-                launcher_path = os.path.join(macos_dir, "launcher")
-                plist_path = os.path.join(app_path, "Contents", "Info.plist")
-                if not os.path.exists(macos_dir):
-                    os.makedirs(macos_dir)
-                launcher_script = '''#!/bin/bash
-TRACKER_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
-cd "$TRACKER_DIR"
-exec "$TRACKER_DIR/.venv/bin/python3" tracker.py --output-file "$TRACKER_DIR/smile_session.json"
-'''
-                with open(launcher_path, "w") as f:
-                    f.write(launcher_script)
-                os.chmod(launcher_path, 0o755)
-                plist_content = '''<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>CFBundleExecutable</key><string>launcher</string>
-<key>CFBundleIdentifier</key><string>com.applogize.tracker</string>
-<key>CFBundleName</key><string>Tracker</string>
-<key>LSUIElement</key><true/>
-</dict></plist>
-'''
-                with open(plist_path, "w") as f:
-                    f.write(plist_content)
-                subprocess.Popen(["open", app_path])
+                # macOS: run inside Terminal.app which already has camera permission.
+                # An unsigned .app bundle cannot trigger macOS TCC permission dialogs.
+                smile_file = os.path.join(tracker_dir, "smile_session.json")
+                cmd = (
+                    f'cd {tracker_dir!r} && '
+                    f'{venv_python!r} tracker.py --output-file {smile_file!r}'
+                )
+                subprocess.Popen([
+                    "osascript", "-e",
+                    f'tell application "Terminal" to do script "{cmd}"',
+                ])
             elif sys.platform == "win32":
                 # Windows: use start to open new window
                 smile_file = os.path.join(tracker_dir, "smile_session.json")

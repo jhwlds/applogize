@@ -4,5 +4,6 @@
 <key>CFBundleExecutable</key><string>launcher</string>
 <key>CFBundleIdentifier</key><string>com.applogize.tracker</string>
 <key>CFBundleName</key><string>Tracker</string>
+<key>NSCameraUsageDescription</key><string>Tracks facial expressions and gestures for the game.</string>
 <key>LSUIElement</key><true/>
 </dict></plist>
