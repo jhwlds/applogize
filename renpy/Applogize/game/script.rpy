@@ -961,6 +961,7 @@ label ending_gameover:
 
     scene badending
     with fade
+    play music "images/characters/GTA.mp3"
     show screen bad_ending_title
     pause
     hide screen bad_ending_title
