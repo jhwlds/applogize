@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     DEBUG: bool = True
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+    OPENAI_API_KEY: str = ""
     
     @property
     def cors_origins_list(self) -> List[str]:
