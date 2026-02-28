@@ -96,32 +96,18 @@ screen phone_main_screen():
                     action SetScreenVariable("current_app", "home")
 
     # --- "Make Guess" button (outside phone) ---
-    if len(found_clues) >= 3:
-        frame:
-            xalign 0.9
-            yalign 0.88
-            xpadding 24
-            ypadding 14
-            background Frame(Solid("#cc333399"), 4, 4)
+    frame:
+        xalign 0.9
+        yalign 0.88
+        xpadding 24
+        ypadding 14
+        background Frame(Solid("#cc333399"), 4, 4)
 
-            textbutton "INVESTIGATE":
-                text_size 24
-                text_color "#ffffff"
-                text_hover_color "#ffd700"
-                action Return("make_guess")
-
-    # Clue count hint
-    if len(found_clues) < 3:
-        frame:
-            xalign 0.9
-            yalign 0.88
-            xpadding 24
-            ypadding 14
-            background Frame(Solid("#33333399"), 4, 4)
-
-            text "Find at least 3 clues to investigate":
-                size 16
-                color "#888888"
+        textbutton "INVESTIGATE":
+            text_size 24
+            text_color "#ffffff"
+            text_hover_color "#ffd700"
+            action Return("make_guess")
 
 
 ################################################################################
