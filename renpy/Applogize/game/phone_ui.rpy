@@ -36,24 +36,21 @@ screen phone_main_screen():
     # --- HUD: Timer + Clue count (above phone) - only during initial 180s ---
     if timer_running:
         frame:
-            xalign 0.5
-            ypos 15
+            xalign 1.0
+            yalign 0.0
+            xoffset -20
+            yoffset 15
             xpadding 30
             ypadding 10
             background Frame(Solid("#1a1a2ecc"), 4, 4)
 
             hbox:
-                spacing 30
+                spacing 0
                 yalign 0.5
 
                 text "TIME  [format_timer(timer_seconds)]":
                     size 32
                     color ("#ff4444" if timer_seconds < 30 else "#ffffff")
-
-                text "CLUES  [len(found_clues)]/[total_clues]":
-                    size 20
-                    color "#aaaaaa"
-                    yalign 0.5
 
         timer 1.0 repeat True action SetVariable("timer_seconds", max(0, timer_seconds - 1))
 
@@ -133,24 +130,6 @@ screen phone_main_screen():
                 # Show story full-screen over the whole phone area (including status bar).
                 if instagram_story_zoom_photo:
                     use phone_instagram_story_zoom(photo_path=instagram_story_zoom_photo)
-
-    # --- "Call to her" button (outside phone) ---
-    frame:
-        xalign 0.9
-        yalign 0.88
-        xpadding 24
-        ypadding 14
-        background Frame(Solid("#1a6b2a99"), 4, 4)
-
-        textbutton "📞 Call to her":
-            text_size 24
-            text_color "#ffffff"
-            text_hover_color "#4aff7a"
-            action [
-                Function(renpy.music.stop, fadeout=1.5),
-                Hide("phone_main_screen", transition=fade),
-                Return("make_call")
-            ]
 
 
 ################################################################################
@@ -301,8 +280,30 @@ screen phone_home_content():
 
                                 text "Memo" size 13 color "#ffffff" xalign 0.5 bold True outlines [(2, "#00000088", 0, 0)]
 
-                            # Empty cell
-                            null
+                            # Call app
+                            vbox:
+                                xsize 155
+                                spacing 6
+
+                                button:
+                                    xsize 76
+                                    ysize 76
+                                    xalign 0.5
+                                    background None
+                                    hover_background None
+                                    action [
+                                        Function(renpy.music.stop, fadeout=1.5),
+                                        Return("make_call")
+                                    ]
+
+                                    add "images/ui/icons/call_icon.png":
+                                        fit "contain"
+                                        xalign 0.5
+                                        yalign 0.5
+                                        xsize 76
+                                        ysize 76
+
+                                text "Call" size 13 color "#ffffff" xalign 0.5 bold True outlines [(2, "#00000088", 0, 0)]
 
                     # 페이지 2: 추후 확장을 위한 빈 페이지 (예시 아이콘)
                     frame:

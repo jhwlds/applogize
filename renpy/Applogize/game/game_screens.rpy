@@ -81,6 +81,31 @@ screen character_select_screen():
 ## Intro Video
 ################################################################################
 
+transform cutscene_fade_envelope(duration, fade_time=0.8):
+    alpha 0.0
+    linear fade_time alpha 1.0
+    pause max(0.0, duration - (fade_time * 2.0))
+    linear fade_time alpha 0.0
+
+screen cinematic_video_screen(video_path, duration, fade_time=0.8, audio_fade_time=0.8):
+    modal True
+
+    # End slightly before container EOF to prevent accidental replay on some builds.
+    $ safe_end = max(0.1, duration - 0.12)
+    $ visual_fade = min(fade_time, safe_end / 2.0)
+    $ audio_fade = min(audio_fade_time, safe_end / 2.0)
+
+    add Solid("#000000")
+    add Movie(play=video_path, loop=False, size=(1920, 1080), channel="movie") at cutscene_fade_envelope(safe_end, visual_fade)
+
+    on "show" action [
+        Function(renpy.music.set_volume, 0.0, 0.0, "movie"),
+        Function(renpy.music.set_volume, 1.0, audio_fade, "movie")
+    ]
+
+    timer max(0.0, safe_end - audio_fade) action Function(renpy.music.set_volume, 0.0, audio_fade, "movie")
+    timer safe_end action [Function(renpy.music.stop, channel="movie", fadeout=0.0), Return()]
+
 screen intro_video_screen():
     modal True
 
@@ -179,7 +204,7 @@ screen voice_guess_screen():
                 spacing 15
 
                 if voice_status == "recording":
-                    text "Recording... (speak now)" size 16 color "#ffaa00" xalign 0.5
+                    text "Recording... (speak now)" size 16 color "#000000" xalign 0.5
                 elif voice_status == "ok":
                     text "Voice captured." size 16 color "#44ff44" xalign 0.5
                 elif voice_status == "error":
@@ -305,7 +330,7 @@ screen call_recording_overlay():
                             xalign 0.5
                             spacing 8
                             text "●" size 20 color "#ffaa00"
-                            text "Recording..." size 18 color "#ffaa00"
+                            text "Recording..." size 18 color "#000000"
                         text "Speak into the microphone now." size 13 color "#888888" xalign 0.5
 
                     elif voice_status == "ok":

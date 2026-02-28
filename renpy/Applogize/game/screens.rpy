@@ -356,18 +356,7 @@ style navigation_button_text:
 ##
 ## https://www.renpy.org/doc/html/screen_special.html#main-menu
 
-default _mm_video_slot = 0
 default main_menu_album_zoom_photo = None
-define _mm_video_duration = 8.018
-define _mm_video_fadein = 0.35
-define _mm_video_fadeout = 0.35
-define _mm_video_hold = 7.318
-
-transform mm_video_loop_envelope:
-    alpha 0.0
-    linear _mm_video_fadein alpha 1.0
-    pause _mm_video_hold
-    linear _mm_video_fadeout alpha 0.0
 
 screen main_menu():
 
@@ -387,13 +376,7 @@ screen main_menu():
         $ mm_video = "video/main_page_video.mp4"
 
     if mm_video:
-        if _mm_video_slot == 0:
-            add Movie(play=mm_video, loop=False, size=(1920, 1080)) at mm_video_loop_envelope
-        else:
-            add Movie(play=mm_video, loop=False, size=(1920, 1080)) at mm_video_loop_envelope
-
-        # Restart playback manually so each loop can fade in/out envelope.
-        timer _mm_video_duration repeat True action SetVariable("_mm_video_slot", 1 - _mm_video_slot)
+        add Movie(play=mm_video, loop=True, size=(1920, 1080), channel="movie")
     else:
         add Solid("#000000")
 
@@ -1474,6 +1457,7 @@ style notify_frame:
 
 style notify_text:
     properties gui.text_properties("notify")
+    color "#000000"
 
 
 ## NVL screen ##################################################################
