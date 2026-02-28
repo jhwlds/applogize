@@ -360,7 +360,7 @@ screen call_recording_overlay():
                 text_size 14
                 text_color "#666666"
                 text_hover_color "#aaaaaa"
-                action Return("skip")
+                action [Function(stop_voice_record_if_running), Return("skip")]
 
             # Cancel / back
             textbutton "< Check your phone again":
