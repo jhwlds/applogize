@@ -25,10 +25,10 @@ pip-delete-this-directory.txt
 htmlcov/
 
 # Environment variables
-speechemotionanalysis/.env
+backend/speechemotionanalysis/.env
 
 # Runtime uploads
-speechemotionanalysis/uploads/
+backend/speechemotionanalysis/uploads/
 
 # OS / Editor
 Thumbs.db

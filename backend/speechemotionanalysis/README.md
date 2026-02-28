@@ -82,7 +82,7 @@
 ## 설정 방법
 1. 폴더 이동:
 ```powershell
-cd c:\Users\minjo\GitHub\applogize\speechemotionanalysis
+cd c:\Users\minjo\GitHub\applogize\backend\speechemotionanalysis
 ```
 2. 패키지 설치:
 ```powershell
@@ -140,7 +140,7 @@ ffmpeg -i .\uploads\{input 파일이름}.m4a -ac 1 -ar 16000 -sample_fmt s16 .\u
 
 ### 변환된 wav로 분석 요청
 ```powershell
-curl.exe -X POST "http://127.0.0.1:19000/analyze" -F "file=@C:\Users\minjo\GitHub\applogize\speechemotionanalysis\uploads\2.wav"
+curl.exe -X POST "http://127.0.0.1:19000/analyze" -F "file=@C:\Users\minjo\GitHub\applogize\backend\speechemotionanalysis\uploads\2.wav"
 ```
 
 ## 협업 시 참고
