@@ -24,6 +24,7 @@ default voice_status = ""  # "", "recording", "ok", "error"
 default voice_error_message = ""  # last exception message when voice_status == "error"
 default server_guess_result = None  # True/False/None after submit
 default heart_rescue_success = False  # True if heart detected in grab-one-last-chance flow
+default videocall_duration = 0  # seconds elapsed during video call (Stage 2)
 
 ## Characters ##################################################################
 
@@ -98,6 +99,11 @@ init python:
         m = seconds // 60
         s = seconds % 60
         return "{:01d}:{:02d}".format(m, s)
+
+    def format_videocall_duration():
+        d = store.videocall_duration
+        m, s = d // 60, d % 60
+        return "{:02d}:{:02d}".format(m, s)
 
     # ---- Voice guess: STT via speechemotionanalysis server POST /analyze (WAV -> transcript) ----
     import urllib.request
@@ -522,6 +528,7 @@ label stage2:
     # then give the player a small 10-point forgiveness.
     $ rage_gauge = max(0, rage_gauge - 10)
     $ quick_menu = False
+    $ videocall_duration = 0
 
     scene bg_videocall
     with dissolve
@@ -559,10 +566,11 @@ label stage2_loop:
         with vpunch
         gf "Are you spacing out right now?"
     elif result == "end_response":
-        scene bg_videocall
-        show gf angry2 at truecenter
-        with dissolve
-        gf "You were smiling! This is serious!"
+        if rage_gauge < 100:
+            scene bg_videocall
+            show gf angry2 at truecenter
+            with dissolve
+            gf "You were smiling! This is serious!"
     else:
         # Any non-great, non-bad result still increases rage slightly.
         $ rage_gauge = min(100, rage_gauge + 10)
@@ -605,10 +613,8 @@ label check_rescue:
         scene bg_dark
         with dissolve
 
-        "You've pushed things too far..."
-        "But it's not over yet."
-
         menu:
+            "You've pushed things too far... But it's not over yet."
             "Grab one last chance":
                 mc "(One more shot. I can't mess this up!)"
                 $ quick_menu = False
@@ -621,6 +627,9 @@ label check_rescue:
                     $ stop_and_check_heart()
                     if heart_rescue_success:
                         $ rage_gauge = 30
+                        scene bg_videocall
+                        show gf angry1 at truecenter
+                        with dissolve
                         jump stage2_loop
                     else:
                         $ rage_gauge = 100
