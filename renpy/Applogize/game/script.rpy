@@ -15,12 +15,14 @@ default timer_seconds = 180
 default timer_running = False
 default rescue_used = False
 
-## Voice guess (Stage 1) – STT via speechemotionanalysis server /analyze only (no check_answer)
+## Voice guess (Stage 1) – STT via speechemotionanalysis server /analyze; answer check via server
 default analyze_url = "http://localhost:19000/analyze"
+default answer_check_url = "http://localhost:8000/check_answer"
 default guess_text = ""
 default voice_status = ""  # "", "recording", "ok", "error"
 default voice_error_message = ""  # last exception message when voice_status == "error"
 default server_guess_result = None  # True/False/None after submit
+default heart_rescue_success = False  # True if heart detected in grab-one-last-chance flow
 
 ## Characters ##################################################################
 
@@ -209,6 +211,29 @@ init python:
 
             return renpy.store.Return("correct")
 
+    class SubmitGuessAction(renpy.store.Action):
+        """POST guess_text to answer_check_url and return correct/wrong."""
+        def __call__(self):
+            try:
+                data = json.dumps({"answer": (store.guess_text or "").strip()}).encode("utf-8")
+                req = urllib.request.Request(
+                    store.answer_check_url,
+                    data=data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    body = json.loads(resp.read().decode("utf-8"))
+                ok = bool(body.get("correct", False))
+                store.server_guess_result = ok
+                return renpy.store.Return("correct" if ok else "wrong")
+            except Exception as e:
+                store.server_guess_result = None
+                store.voice_status = "error"
+                store.voice_error_message = "Server error: " + str(e)[:80]
+                renpy.restart_interaction()
+            return None
+
     def run_tracker_start():
         """Start tracker (camera) in background. On macOS uses .app bundle for GUI without Terminal."""
         import subprocess
@@ -236,7 +261,7 @@ init python:
                 launcher_script = '''#!/bin/bash
 TRACKER_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$TRACKER_DIR"
-exec "$TRACKER_DIR/.venv/bin/python3" tracker.py
+exec "$TRACKER_DIR/.venv/bin/python3" tracker.py --output-file "$TRACKER_DIR/smile_session.json"
 '''
                 with open(launcher_path, "w") as f:
                     f.write(launcher_script)
@@ -255,9 +280,11 @@ exec "$TRACKER_DIR/.venv/bin/python3" tracker.py
                 subprocess.Popen(["open", app_path])
             elif sys.platform == "win32":
                 # Windows: use start to open new window
-                subprocess.Popen(["cmd", "/c", "start", "cmd", "/k", venv_python, tracker_py], cwd=tracker_dir)
+                smile_file = os.path.join(tracker_dir, "smile_session.json")
+                subprocess.Popen(["cmd", "/c", "start", "cmd", "/k", venv_python, tracker_py, "--output-file", smile_file], cwd=tracker_dir)
             else:
-                subprocess.Popen([venv_python, tracker_py], cwd=tracker_dir, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                smile_file = os.path.join(tracker_dir, "smile_session.json")
+                subprocess.Popen([venv_python, tracker_py, "--output-file", smile_file], cwd=tracker_dir, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             renpy.notify("Camera started. Close the camera window when done.")
         except Exception as e:
             renpy.notify("Could not start camera: " + str(e)[:50])
@@ -272,6 +299,58 @@ exec "$TRACKER_DIR/.venv/bin/python3" tracker.py
                 subprocess.run(["pkill", "-f", "tracker.py"], capture_output=True, timeout=2)
             elif sys.platform == "win32":
                 subprocess.run(["taskkill", "/F", "/FI", "WINDOWTITLE eq*tracker*"], capture_output=True, timeout=2)
+        except Exception:
+            pass
+
+    def stop_and_check_heart():
+        """Stop tracker, read heart_detected from file, set store.heart_rescue_success."""
+        import json
+        import os
+        import time
+        run_tracker_stop()
+        time.sleep(0.6)
+        base = renpy.config.basedir
+        tracker_dir = os.path.abspath(os.path.join(base, "..", "..", "backend", "tracker"))
+        if not os.path.isdir(tracker_dir):
+            gamedir = renpy.config.gamedir
+            tracker_dir = os.path.abspath(os.path.join(gamedir, "..", "..", "..", "backend", "tracker"))
+        session_path = os.path.join(tracker_dir, "smile_session.json")
+        store.heart_rescue_success = False
+        try:
+            if os.path.isfile(session_path):
+                with open(session_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                store.heart_rescue_success = bool(data.get("heart_detected", False))
+                try:
+                    os.remove(session_path)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def stop_and_apply_smile_rage():
+        """Stop tracker, read smile count from file, add rage_gauge += smile_count * 2."""
+        import json
+        import os
+        import time
+        run_tracker_stop()
+        time.sleep(0.6)
+        base = renpy.config.basedir
+        tracker_dir = os.path.abspath(os.path.join(base, "..", "..", "backend", "tracker"))
+        if not os.path.isdir(tracker_dir):
+            gamedir = renpy.config.gamedir
+            tracker_dir = os.path.abspath(os.path.join(gamedir, "..", "..", "..", "backend", "tracker"))
+        smile_path = os.path.join(tracker_dir, "smile_session.json")
+        try:
+            if os.path.isfile(smile_path):
+                with open(smile_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                cnt = int(data.get("smile_count", 0))
+                store.rage_gauge = min(100, store.rage_gauge + cnt * 2)
+                try:
+                    os.remove(smile_path)
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -324,8 +403,8 @@ label stage1_phone_loop:
     $ timer_running = True
     call screen phone_main_screen
 
-    if _return == "make_guess":
-        jump stage1_guess
+    if _return == "make_call":
+        jump stage1_call
     elif _return == "timeout":
         jump stage1_timeout
     else:
@@ -347,6 +426,33 @@ label stage1_guess:
     elif _return == "back_to_phone":
         $ timer_seconds = max(timer_seconds, 60)
         jump stage1_phone_loop
+    else:
+        jump stage1_wrong
+
+label stage1_call:
+    $ timer_running = False
+    $ guess_text = ""
+    $ voice_status = ""
+    $ voice_error_message = ""
+    $ quick_menu = False
+
+    phone call "gf"
+    phone_gf "..."
+    phone_gf "Why are you calling me right now?"
+    phone_mc "I know you're upset. I want to explain."
+    phone_gf "Fine. Tell me — why do you think I'm angry?"
+
+    $ start_voice_record()
+
+    call screen call_recording_overlay
+
+    phone end call
+
+    if _return == "back_to_phone":
+        $ timer_seconds = max(timer_seconds, 60)
+        jump stage1_phone_loop
+    elif voice_status == "ok":
+        jump stage1_correct
     else:
         jump stage1_wrong
 
@@ -428,7 +534,12 @@ label stage2_loop:
         scene bg_videocall
         show gf angry2 at truecenter
         with vpunch
-        gf "You call that an apology?! Do you even care how I feel?"
+        gf "You call that an apology?!"
+    elif result == "end_response":
+        scene bg_videocall
+        show gf angry2 at truecenter
+        with dissolve
+        gf "You were smiling! This is serious!"
     else:
         # Any non-great, non-bad result still increases rage slightly.
         $ rage_gauge = min(100, rage_gauge + 10)
@@ -482,8 +593,16 @@ label check_rescue:
                     $ timer_seconds = 180
                     jump stage1_phone_loop
                 else:
-                    $ rage_gauge = max(0, rage_gauge - 30)
-                    jump stage2_loop
+                    $ run_tracker_start()
+                    call screen grab_one_last_chance_screen
+                    $ run_tracker_stop()
+                    $ stop_and_check_heart()
+                    if heart_rescue_success:
+                        $ rage_gauge = 30
+                        jump stage2_loop
+                    else:
+                        $ rage_gauge = 100
+                        jump ending_gameover
             "Give up...":
                 jump ending_gameover
     else:

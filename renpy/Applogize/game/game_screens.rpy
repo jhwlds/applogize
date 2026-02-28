@@ -165,7 +165,7 @@ screen voice_guess_screen():
 
                 vbox:
                     spacing 8
-                    text "Your answer (voice or type):" size 13 color "#888888"
+                    text "Your answer (sent to server for check):" size 13 color "#888888"
                     input:
                         value VariableInputValue("guess_text")
                         xsize 750
@@ -184,12 +184,7 @@ screen voice_guess_screen():
                 elif voice_status == "ok":
                     text "Voice captured." size 16 color "#44ff44" xalign 0.5
                 elif voice_status == "error":
-                    vbox:
-                        xalign 0.5
-                        spacing 4
-                        text "Voice failed. Type your answer or try again." size 14 color "#ff6666" xalign 0.5
-                        if voice_error_message:
-                            text "[voice_error_message]" size 12 color "#ffaa66" xalign 0.5 text_align 0.5
+                    text "Voice failed. Type your answer or try again." size 14 color "#ff6666" xalign 0.5
 
             null height 5
 
@@ -207,14 +202,14 @@ screen voice_guess_screen():
                     text_color "#ffffff"
                     action Function(start_voice_record)
 
-                textbutton "Continue":
+                textbutton "Submit to server":
                     xpadding 24
                     ypadding 14
                     background Solid("#2a5e2a")
                     hover_background Solid("#3a7e3a")
                     text_size 18
                     text_color "#ffffff"
-                    action ContinueGuessAction()
+                    action SubmitGuessAction()
 
             null height 10
 
@@ -238,6 +233,105 @@ screen voice_guess_screen():
                     action Jump("stage2")
 
     # Refresh while recording so status updates
+    if voice_status == "recording":
+        timer 0.5 repeat True action NullAction()
+
+
+################################################################################
+## Call Recording Overlay (Stage 1) - shown during phone call, auto-starts STT
+################################################################################
+
+screen call_recording_overlay():
+    modal True
+
+    # Right-side panel (phone_call screen occupies the left ~40%)
+    frame:
+        xalign 0.97
+        yalign 0.5
+        xsize 420
+        ypadding 28
+        xpadding 22
+        background Frame(Solid("#0e0e1eee"), 8, 8)
+
+        vbox:
+            spacing 18
+            xfill True
+
+            text "On the phone..." size 18 color "#ff6b9d" xalign 0.5 bold True
+
+            # Recording status indicator
+            frame:
+                xfill True
+                ypadding 14
+                xpadding 14
+                background Solid("#12121e")
+
+                vbox:
+                    spacing 8
+                    xfill True
+
+                    if voice_status == "recording":
+                        hbox:
+                            xalign 0.5
+                            spacing 8
+                            text "●" size 20 color "#ffaa00"
+                            text "Recording..." size 18 color "#ffaa00"
+                        text "Speak into the microphone now." size 13 color "#888888" xalign 0.5
+
+                    elif voice_status == "ok":
+                        hbox:
+                            xalign 0.5
+                            spacing 8
+                            text "●" size 20 color "#44ff44"
+                            text "Voice captured" size 18 color "#44ff44"
+                        if guess_text:
+                            null height 4
+                            frame:
+                                xfill True
+                                background Solid("#1a2a1a")
+                                xpadding 10
+                                ypadding 8
+                                text "[guess_text]" size 14 color "#cccccc" text_align 0.0
+
+                    elif voice_status == "error":
+                        hbox:
+                            xalign 0.5
+                            spacing 8
+                            text "●" size 20 color "#ff4444"
+                            text "Recording failed" size 18 color "#ff4444"
+                        if voice_error_message:
+                            text "[voice_error_message]" size 11 color "#ffaa66" xalign 0.5 text_align 0.5
+
+                    else:
+                        text "Connecting..." size 18 color "#888888" xalign 0.5
+
+            null height 4
+
+            # Hang Up button
+            frame:
+                xalign 0.5
+                background None
+
+                textbutton "🔴  Hang Up":
+                    xsize 200
+                    ysize 60
+                    xpadding 14
+                    background Solid("#cc0000")
+                    hover_background Solid("#ee2222")
+                    text_size 20
+                    text_color "#ffffff"
+                    text_xalign 0.5
+                    action ContinueGuessAction()
+
+            # Cancel / back
+            textbutton "< Cancel call":
+                xalign 0.5
+                text_size 13
+                text_color "#666666"
+                text_hover_color "#aaaaaa"
+                action Return("back_to_phone")
+
+    # Poll every 0.5s while recording so status text updates live
     if voice_status == "recording":
         timer 0.5 repeat True action NullAction()
 
@@ -466,7 +560,39 @@ screen apology_input_screen():
                 text_size 20
                 text_color "#ffffff"
                 text_xalign 0.5
-                action Function(run_tracker_stop)
+                action [Function(stop_and_apply_smile_rage), Return("end_response")]
+
+    # [임시] 분노게이지 100으로 채워서 바로 check_rescue 테스트
+    textbutton "[[DEBUG]] 분노100":
+        xalign 0.98
+        yalign 0.02
+        xpadding 10
+        ypadding 4
+        background Solid("#5e2e5e")
+        hover_background Solid("#7e4e7e")
+        text_size 14
+        text_color "#ffcccc"
+        action [SetVariable("rage_gauge", 100), Return("end_response")]
+
+
+################################################################################
+## Grab One Last Chance - 5 Second Heart Screen
+################################################################################
+
+screen grab_one_last_chance_screen():
+    modal True
+
+    add Solid("#0f0f23")
+
+    vbox:
+        xalign 0.5
+        yalign 0.5
+        spacing 20
+
+        text "Show your heart!" size 36 color "#ff6b9d" xalign 0.5 bold True
+        text "5 seconds..." size 24 color "#aaaaaa" xalign 0.5
+
+    timer 5.0 action Return("done")
 
 
 ################################################################################

@@ -88,19 +88,19 @@ screen phone_main_screen():
                     text_hover_color "#ffffff"
                     action SetScreenVariable("current_app", "home")
 
-    # --- "Make Guess" button (outside phone) ---
+    # --- "Call to her" button (outside phone) ---
     frame:
         xalign 0.9
         yalign 0.88
         xpadding 24
         ypadding 14
-        background Frame(Solid("#cc333399"), 4, 4)
+        background Frame(Solid("#1a6b2a99"), 4, 4)
 
-        textbutton "INVESTIGATE":
+        textbutton "📞 Call to her":
             text_size 24
             text_color "#ffffff"
-            text_hover_color "#ffd700"
-            action Return("make_guess")
+            text_hover_color "#4aff7a"
+            action Return("make_call")
 
 
 ################################################################################
