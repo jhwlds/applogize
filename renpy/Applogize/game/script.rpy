@@ -307,7 +307,7 @@ label stage1:
     with dissolve
 
     gf "..."
-    gf "You really don't know? You have no idea why I'm upset?"
+    gf "You seriously don't know? It's pathetic you have no idea why I'm upset."
 
     mc "(What did I do wrong...?)"
     mc "(Let me check my phone for clues.)"
@@ -355,8 +355,8 @@ label stage1_wrong:
     show gf angry1 at truecenter
     with vpunch
 
-    gf "That's not it!"
-    gf "Are you serious right now?"
+    gf "That's not it at all."
+    gf "Are you even trying right now?"
 
     mc "(No, that wasn't it... Let me think again.)"
 
@@ -417,18 +417,18 @@ label stage2_loop:
         scene bg_videocall
         show gf normal at truecenter
         with dissolve
-        gf "...That was a real apology."
+        gf "...Took you long enough to actually apologize properly."
         jump stage2_success
     elif result == "bad":
         $ rage_gauge = min(100, rage_gauge + 10)
         scene bg_videocall
         show gf angry2 at truecenter
         with vpunch
-        gf "You call that an apology?!"
+        gf "You call that an apology?! Do you even care how I feel?"
     else:
         # Any non-great, non-bad result still increases rage slightly.
         $ rage_gauge = min(100, rage_gauge + 10)
-        gf "..."
+        gf "...This isn't good enough."
 
     $ quick_menu = False
 
