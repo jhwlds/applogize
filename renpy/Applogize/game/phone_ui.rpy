@@ -9,7 +9,10 @@ screen phone_main_screen():
     default instagram_tab = "feed"
     default gallery_tab = "photos"
 
-    add Solid("#050510")
+    fixed:
+        xfill True
+        yfill True
+        add "images/characters/room.jpg" fit "cover"
 
     # --- HUD: Timer + Energy + Clue count (above phone) ---
     if timer_running:

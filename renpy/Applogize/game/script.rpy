@@ -16,12 +16,11 @@ default timer_running = False
 default gf_anger_level = 0
 default rescue_used = False
 
-## Voice guess / server (Stage 1)
-## Answer is fixed on the server: you decide correct/incorrect there.
-## Client: POST JSON {"answer": "user text"} -> Server: JSON {"correct": true} or {"correct": false}
-default answer_check_url = "http://localhost:8000/check_answer"
+## Voice guess (Stage 1) – STT via speechemotionanalysis server /analyze only (no check_answer)
+default analyze_url = "http://localhost:19000/analyze"
 default guess_text = ""
 default voice_status = ""  # "", "recording", "ok", "error"
+default voice_error_message = ""  # last exception message when voice_status == "error"
 default server_guess_result = None  # True/False/None after submit
 
 ## Characters ##################################################################
@@ -72,71 +71,109 @@ init python:
         s = seconds % 60
         return "{:01d}:{:02d}".format(m, s)
 
-    # ---- Voice guess: send answer text to server, get correct/incorrect ----
+    # ---- Voice guess: STT via speechemotionanalysis server POST /analyze (WAV -> transcript) ----
     import urllib.request
     import urllib.error
     import json
-
-    def submit_answer_to_server(text):
-        """POST store.guess_text to answer_check_url. Returns True/False/None (None = error)."""
-        url = store.answer_check_url
-        if not url or not str(text).strip():
-            return None
-        try:
-            data = json.dumps({"answer": str(text).strip()}).encode("utf-8")
-            req = urllib.request.Request(
-                url,
-                data=data,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                body = json.loads(resp.read().decode("utf-8"))
-                return bool(body.get("correct", False))
-        except Exception:
-            return None
+    import subprocess
+    import os
 
     def _record_and_stt_worker():
-        """Runs in background thread: record mic -> STT -> set store.guess_text + store.voice_status.
-        Requires: pip install SpeechRecognition pyaudio (and system mic). If not installed, Record shows error."""
+        """Record WAV via script, POST to analyze_url, set guess_text from transcript."""
+        script_dir = renpy.config.gamedir
+        wav_path = os.path.join(script_dir, "record_temp.wav")
+        record_script = os.path.join(script_dir, "record_to_wav.py")
+        url = store.analyze_url
         try:
-            import speech_recognition as sr
-            r = sr.Recognizer()
-            with sr.Microphone() as source:
-                # Optional: adjust for ambient noise (short delay)
-                r.adjust_for_ambient_noise(source, duration=0.5)
-                audio = r.record(source, duration=6)
-            text = r.recognize_google(audio, language="en-US")
-            text = (text or "").strip()
+            proc = subprocess.run(
+                ["python3", record_script],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=script_dir,
+            )
+            out = (proc.stdout or "").strip()
+            if out.startswith("ERROR:") or proc.returncode != 0:
+                err = (out[6:].strip().lstrip(" ") if out.startswith("ERROR:") else (proc.stderr or "Recording failed")[:120])[:120]
+                def set_err():
+                    store.voice_status = "error"
+                    store.voice_error_message = err
+                    store.guess_text = store.guess_text
+                renpy.invoke_in_main_thread(set_err)
+                return
+            if not os.path.isfile(wav_path):
+                def set_err():
+                    store.voice_status = "error"
+                    store.voice_error_message = "No WAV file created."
+                    store.guess_text = store.guess_text
+                renpy.invoke_in_main_thread(set_err)
+                return
+            with open(wav_path, "rb") as f:
+                wav_data = f.read()
+            boundary = "----RenPyFormBoundary" + str(abs(hash(wav_path)))
+            body = (
+                b"--" + boundary.encode() + b"\r\n"
+                b'Content-Disposition: form-data; name="file"; filename="audio.wav"\r\n'
+                b"Content-Type: audio/wav\r\n\r\n"
+                + wav_data + b"\r\n"
+                b"--" + boundary.encode() + b"--\r\n"
+            )
+            req = urllib.request.Request(
+                url,
+                data=body,
+                headers={"Content-Type": "multipart/form-data; boundary=" + boundary},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=70) as resp:
+                body_json = json.loads(resp.read().decode("utf-8"))
+            transcript = (body_json.get("transcript") or "").strip()
+            # Keep wav for debugging; uncomment to clean up:
+            # try:
+            #     os.remove(wav_path)
+            # except Exception:
+            #     pass
             def set_result():
-                store.guess_text = text
-                store.voice_status = "ok" if text else "error"
+                store.guess_text = transcript
+                store.voice_status = "ok" if transcript else "error"
             renpy.invoke_in_main_thread(set_result)
-        except Exception as e:
-            err = str(e)[:80]
+        except subprocess.TimeoutExpired:
             def set_err():
                 store.voice_status = "error"
-                store.guess_text = store.guess_text  # no change to text
+                store.voice_error_message = "Recording timed out."
+                store.guess_text = store.guess_text
+            renpy.invoke_in_main_thread(set_err)
+        except FileNotFoundError:
+            def set_err():
+                store.voice_status = "error"
+                store.voice_error_message = "python3 or record_to_wav.py not found. Install Python 3 and pyaudio."
+                store.guess_text = store.guess_text
+            renpy.invoke_in_main_thread(set_err)
+        except Exception as e:
+            err = str(e)[:120]
+            def set_err():
+                store.voice_status = "error"
+                store.voice_error_message = err
+                store.guess_text = store.guess_text
             renpy.invoke_in_main_thread(set_err)
 
     def start_voice_record():
         """Start recording in a thread; UI shows status via store.voice_status."""
         import threading
         store.voice_status = "recording"
+        store.voice_error_message = ""
+        try:
+            renpy.restart_interaction()
+            renpy.notify("Recording...")
+        except Exception:
+            pass
         t = threading.Thread(target=_record_and_stt_worker)
         t.daemon = True
         t.start()
 
-    class SubmitGuessAction(renpy.store.Action):
-        """Submit current guess_text to server and return Return('correct') or Return('wrong') or notify error."""
+    class ContinueGuessAction(renpy.store.Action):
+        """Proceed without server check (STT only)."""
         def __call__(self):
-            r = submit_answer_to_server(store.guess_text)
-            if r is True:
-                return renpy.store.Return("correct")
-            if r is False:
-                return renpy.store.Return("wrong")
-            renpy.notify("Server error. Check URL or try again.")
-            return None
+            return renpy.store.Return("correct")
 
 ################################################################################
 ## Game Flow
@@ -222,6 +259,7 @@ label stage1_guess:
     $ timer_running = False
     $ guess_text = ""
     $ voice_status = ""
+    $ voice_error_message = ""
     call screen voice_guess_screen
 
     if _return == "correct":

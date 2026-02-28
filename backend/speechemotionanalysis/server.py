@@ -1,8 +1,12 @@
-﻿import os
+import json
+import logging
+import os
 import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
+
+logger = logging.getLogger(__name__)
 
 import requests
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -102,13 +106,6 @@ def get_media(file_id: str) -> FileResponse:
 
 @app.post("/analyze")
 def analyze(file: UploadFile = File(...)) -> Dict[str, Any]:
-    public_base_url = _get_setting("PUBLIC_BASE_URL").rstrip("/")
-    if not public_base_url:
-        raise HTTPException(
-            status_code=500,
-            detail="PUBLIC_BASE_URL is required and must be a public URL reachable by Hume",
-        )
-
     hume_api_key = _get_setting("HUME_API_KEY")
     if not hume_api_key:
         raise HTTPException(status_code=500, detail="HUME_API_KEY is required")
@@ -118,12 +115,11 @@ def analyze(file: UploadFile = File(...)) -> Dict[str, Any]:
     file_id = uuid.uuid4().hex
     file_path = UPLOAD_DIR / f"{file_id}.wav"
     _save_upload(file, file_path)
-
-    media_url = f"{public_base_url}/media/{file_id}"
+    wav_size_bytes = file_path.stat().st_size
 
     predictions: Any
     try:
-        job_id = _start_hume_job(hume_api_key, media_url)
+        job_id = _start_hume_job_from_file(hume_api_key, file_path)
         _wait_until_done(hume_api_key, job_id)
         predictions = _get_predictions(hume_api_key, job_id)
     except requests.RequestException as exc:
@@ -136,6 +132,36 @@ def analyze(file: UploadFile = File(...)) -> Dict[str, Any]:
     emotions = _extract_emotions(predictions)
     target_emotions = _select_target_emotions(emotions, TARGET_EMOTION_KEYS)
     transcript, transcript_segments = _extract_transcript(predictions)
+
+    if transcript:
+        logger.info("STT transcript: %s", transcript)
+        print(f"[STT] transcript: {transcript!r}", flush=True)
+    else:
+        # Debug: why empty? Log predictions shape and any text nodes
+        def _top_keys(obj: Any, depth: int = 0) -> str:
+            if depth > 2:
+                return "..."
+            if isinstance(obj, dict):
+                return "{" + ", ".join(f"{k!r}: {_top_keys(v, depth+1)}" for k, v in list(obj.items())[:5]) + "}"
+            if isinstance(obj, list):
+                return f"[{len(obj)} items]"
+            return type(obj).__name__
+        text_count = sum(1 for n in _walk_nodes(predictions) if isinstance((n.get("text") or n.get("transcript")), str) and str((n.get("text") or n.get("transcript")) or "").strip())
+        top = list(predictions.keys())[:8] if isinstance(predictions, dict) else (f"list[{len(predictions)}]" if isinstance(predictions, list) else type(predictions).__name__)
+        first_keys = []
+        if isinstance(predictions, list) and predictions and isinstance(predictions[0], dict):
+            first_keys = list(predictions[0].keys())[:15]
+        logger.warning(
+            "STT transcript empty. wav_size=%s, top=%s, first_keys=%s, nodes_with_text=%s",
+            wav_size_bytes,
+            top,
+            first_keys,
+            text_count,
+        )
+        print(
+            f"[STT] transcript empty. wav_size={wav_size_bytes} bytes, top={top}, first_keys={first_keys}, nodes_with_text={text_count}",
+            flush=True,
+        )
 
     return {
         "file_id": file_id,
@@ -177,30 +203,35 @@ def _safe_delete_file(path: Path) -> None:
 def _headers(api_key: str) -> Dict[str, str]:
     return {
         "X-Hume-Api-Key": api_key,
-        "Content-Type": "application/json",
     }
 
 
-def _start_hume_job(api_key: str, media_url: str) -> str:
+def _start_hume_job_from_file(api_key: str, file_path: Path) -> str:
+    """
+    Start a new batch inference job by uploading a local media file (multipart).
+    This avoids needing PUBLIC_BASE_URL / public URLs for Hume to fetch media.
+    """
     payload = {
-        "urls": [media_url],
         "models": {
             "prosody": {
                 "granularity": "utterance",
             }
         },
+        # Force Hume transcription to use **English** only.
         "transcription": {
             "language": "en",
             "confidence_threshold": 0.0,
         },
     }
 
-    response = requests.post(
-        f"{HUME_API_BASE}/batch/jobs",
-        headers=_headers(api_key),
-        json=payload,
-        timeout=30,
-    )
+    with file_path.open("rb") as f:
+        response = requests.post(
+            f"{HUME_API_BASE}/batch/jobs",
+            headers=_headers(api_key),
+            files=[("file", (file_path.name, f, "audio/wav"))],
+            data={"json": json.dumps(payload)},
+            timeout=60,
+        )
 
     if response.status_code >= 400:
         raise RuntimeError(f"Hume start job failed ({response.status_code}): {response.text}")
@@ -288,11 +319,66 @@ def _extract_emotions(predictions: Any) -> List[Dict[str, float]]:
 
 
 def _extract_transcript(predictions: Any) -> tuple[str, List[Dict[str, Any]]]:
+    # First try: parse known Hume batch predictions structure (list -> results -> predictions -> models -> prosody -> grouped_predictions).
+    # This is more reliable than generic tree-walk when response shape changes.
+    if isinstance(predictions, list):
+        hume_segments: List[Dict[str, Any]] = []
+        for item in predictions:
+            if not isinstance(item, dict):
+                continue
+            results = item.get("results")
+            if not isinstance(results, dict):
+                continue
+            preds = results.get("predictions")
+            if not isinstance(preds, list):
+                continue
+            for pred in preds:
+                if not isinstance(pred, dict):
+                    continue
+                models = pred.get("models")
+                if not isinstance(models, dict):
+                    continue
+                prosody = models.get("prosody")
+                if not isinstance(prosody, dict):
+                    continue
+                grouped = prosody.get("grouped_predictions")
+                if not isinstance(grouped, list):
+                    continue
+                for group in grouped:
+                    if not isinstance(group, dict):
+                        continue
+                    gp = group.get("predictions")
+                    if not isinstance(gp, list):
+                        continue
+                    for p in gp:
+                        if not isinstance(p, dict):
+                            continue
+                        text = p.get("text") or p.get("transcript") or p.get("utterance")
+                        if not isinstance(text, str):
+                            continue
+                        cleaned = text.strip()
+                        if not cleaned:
+                            continue
+                        seg: Dict[str, Any] = {"text": cleaned}
+                        # Some responses include time info at top-level or nested.
+                        time_info = p.get("time") or p.get("timestamps") or p.get("timestamp")
+                        if isinstance(time_info, dict):
+                            if isinstance(time_info.get("begin"), (int, float)):
+                                seg["begin"] = float(time_info["begin"])
+                            if isinstance(time_info.get("end"), (int, float)):
+                                seg["end"] = float(time_info["end"])
+                        hume_segments.append(seg)
+
+        if hume_segments:
+            hume_segments.sort(key=lambda s: (s.get("begin", float("inf")), s["text"]))
+            transcript = " ".join(s["text"] for s in hume_segments).strip()
+            return transcript, hume_segments
+
     segments: List[Dict[str, Any]] = []
     seen: set[tuple[str, float | None, float | None]] = set()
 
     for node in _walk_nodes(predictions):
-        text = node.get("text")
+        text = node.get("text") or node.get("transcript")
         if not isinstance(text, str):
             continue
 
