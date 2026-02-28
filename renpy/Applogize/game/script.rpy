@@ -27,6 +27,7 @@ default heart_rescue_success = False  # True if heart detected in grab-one-last-
 default voice_emotions = {}  # emotion dict from /analyze, forwarded to /check_answer
 default gf_reply = ""  # girlfriend's AI-generated response line from /check_answer
 default videocall_duration = 0  # seconds elapsed during video call (Stage 2)
+default last_smile_count = 0    # smile events when End call pressed (from tracker JSON)
 
 ## Characters ##################################################################
 
@@ -341,11 +342,13 @@ init python:
             gamedir = renpy.config.gamedir
             tracker_dir = os.path.abspath(os.path.join(gamedir, "..", "..", "..", "backend", "tracker"))
         smile_path = os.path.join(tracker_dir, "smile_session.json")
+        store.last_smile_count = 0
         try:
             if os.path.isfile(smile_path):
                 with open(smile_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 cnt = int(data.get("smile_count", 0))
+                store.last_smile_count = cnt
                 store.rage_gauge = min(100, store.rage_gauge + cnt * 2)
                 try:
                     os.remove(smile_path)
@@ -582,7 +585,10 @@ label stage2_loop:
             scene bg_videocall
             show gf angry2 at truecenter
             with dissolve
-            gf "You were smiling! This is serious!"
+            if last_smile_count > 0:
+                gf "You were smiling! This is serious!"
+            else:
+                gf "Why did you hang up? We weren't done talking."
     else:
         # Any non-great, non-bad result still increases rage slightly.
         $ rage_gauge = min(100, rage_gauge + 10)
