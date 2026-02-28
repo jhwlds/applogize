@@ -378,10 +378,9 @@ label stage1_correct:
 
     gf "...Yeah."
     gf "That's why I'm upset."
-    gf "But knowing the reason isn't enough."
-    gf "You need to apologize. For real."
+    gf "You know exactly what you did wrong, and that's how you apologize?"
 
-    mc "(I figured it out. Now I need to apologize sincerely.)"
+    mc "(I figured it out. Now I need to actually apologize.)"
 
     hide gf
     with dissolve
@@ -406,6 +405,8 @@ label stage2:
 
     mc "(Time for a video call apology. I need to mean it...)"
     mc "(Her anger is rising... I need to bring it down!)"
+
+    "Be careful with your facial expression, tone, and word choice when you apologize."
 
     $ quick_menu = False
 
