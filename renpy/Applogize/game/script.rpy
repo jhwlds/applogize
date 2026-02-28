@@ -36,8 +36,8 @@ default stage2_face_data = {}   # tracker session data for Stage 2
 
 ## Characters ##################################################################
 
-define gf = Character("Girlfriend", color="#ff6b9d", what_color="#ffffff")
-define mc = Character("Me", color="#4a90d9", what_color="#ffffff")
+define gf = Character("Girlfriend", color="#ff6b9d", what_color="#000000")
+define mc = Character("Me", color="#4a90d9", what_color="#000000")
 
 ## Placeholder Images ##########################################################
 
