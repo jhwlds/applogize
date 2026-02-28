@@ -40,6 +40,22 @@ image gf normal = "images/characters/idle_pose.png"
 image gf angry1 = "images/characters/angry_face1.png"
 image gf angry2 = "images/characters/angry_face2.png"
 
+image firegirl = "images/characters/firegirl.jpeg"
+image badending = Transform(
+    "images/characters/badending.jpeg",
+    xsize=config.screen_width,
+    ysize=config.screen_height,
+)
+
+screen bad_ending_title():
+    zorder 100
+    text "GAME OVER":
+        xalign 0.02
+        yalign 0.95
+        size 80
+        color "#ffffff"
+        outlines [(4, "#000000", 0, 0)]
+
 ## Helper Functions ############################################################
 
 init python:
@@ -196,27 +212,7 @@ label stage1_phone_loop:
 
 label stage1_timeout:
     $ timer_running = False
-    $ quick_menu = True
-
-    scene bg_dark
-    show gf angry2 at truecenter
-    with vpunch
-
-    gf "Time's up. You don't even care, do you?"
-
-    $ energy -= 10
-    $ gf_anger_level += 1
-
-    if energy <= 0:
-        jump check_rescue
-
-    mc "(I need to hurry up...)"
-
-    hide gf
-    with dissolve
-    $ quick_menu = False
-    $ timer_seconds = 180
-    jump stage1_phone_loop
+    jump ending_gameover
 
 label stage1_guess:
     $ timer_running = False
@@ -388,6 +384,17 @@ label ending_gameover:
 
     scene bg_black
     with fade
+
+    show firegirl at truecenter
+    with dissolve
+
+    gf "You're the absolute worst. Don't you dare contact me again!"
+
+    scene badending
+    with fade
+    show screen bad_ending_title
+    pause
+    hide screen bad_ending_title
 
     call screen ending_gameover_screen
     return
