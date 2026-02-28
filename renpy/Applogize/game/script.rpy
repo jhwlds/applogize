@@ -15,6 +15,7 @@ default total_clues = 8
 default timer_seconds = 180
 default timer_running = False
 default rescue_used = False
+default in_rescue_mission = False
 
 ## Voice guess (Stage 1) – STT via speechemotionanalysis server /analyze; answer check via server
 default analyze_url = "http://localhost:19000/analyze"
@@ -28,6 +29,7 @@ default voice_emotions = {}  # emotion dict from /analyze, forwarded to /check_a
 default gf_reply = ""  # girlfriend's AI-generated response line from /check_answer
 default _call_overlay_result = ""  # "correct"/"wrong"/"back_to_phone"/"skip", read by call_recording_overlay timer
 default videocall_duration = 0  # seconds elapsed during video call (Stage 2)
+default last_smile_count = 0    # smile events when End call pressed (from tracker JSON)
 
 ## Characters ##################################################################
 
@@ -46,6 +48,7 @@ image gf angry1 = "images/characters/angry_face1.png"
 image gf angry2 = "images/characters/angry_face2.png"
 
 image firegirl = "images/characters/firegirl.jpeg"
+image semifire = "images/characters/semifire.jpeg"
 image badending = Transform(
     "images/characters/badending.jpeg",
     xsize=config.screen_width,
@@ -337,7 +340,9 @@ init python:
             gamedir = renpy.config.gamedir
             tracker_dir = os.path.abspath(os.path.join(gamedir, "..", "..", "..", "backend", "tracker"))
             tracker_py = os.path.join(tracker_dir, "tracker.py")
-        venv_python = os.path.join(tracker_dir, ".venv", "bin", "python3") if sys.platform != "win32" else os.path.join(tracker_dir, ".venv", "Scripts", "python.exe")
+        venv_python = os.path.join(tracker_dir, "venv", "bin", "python3") if sys.platform != "win32" else os.path.join(tracker_dir, "venv", "Scripts", "python.exe")
+        if not os.path.isfile(venv_python):
+            venv_python = os.path.join(tracker_dir, ".venv", "bin", "python3") if sys.platform != "win32" else os.path.join(tracker_dir, ".venv", "Scripts", "python.exe")
         if not os.path.isfile(venv_python):
             venv_python = "python3" if sys.platform != "win32" else "python"
         try:
@@ -416,11 +421,13 @@ init python:
             gamedir = renpy.config.gamedir
             tracker_dir = os.path.abspath(os.path.join(gamedir, "..", "..", "..", "backend", "tracker"))
         smile_path = os.path.join(tracker_dir, "smile_session.json")
+        store.last_smile_count = 0
         try:
             if os.path.isfile(smile_path):
                 with open(smile_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 cnt = int(data.get("smile_count", 0))
+                store.last_smile_count = cnt
                 store.rage_gauge = min(100, store.rage_gauge + cnt * 2)
                 try:
                     os.remove(smile_path)
@@ -507,6 +514,11 @@ label stage1_idle_warning:
     $ rage_gauge = min(100, rage_gauge + 5)
     $ quick_menu = True
 
+    if rage_gauge >= 100:
+        if in_rescue_mission:
+            jump ending_gameover
+        jump check_rescue
+
     scene bg_dark
     show gf angry1 at truecenter
     with vpunch
@@ -581,6 +593,11 @@ label stage1_wrong:
     $ rage_gauge = min(100, rage_gauge + 10)
     $ quick_menu = True
 
+    if rage_gauge >= 100:
+        if in_rescue_mission:
+            jump ending_gameover
+        jump check_rescue
+
     scene bg_dark
     show gf angry1 at truecenter
     with vpunch
@@ -600,6 +617,16 @@ label stage1_wrong:
 
 label stage1_correct:
     $ quick_menu = True
+
+    if in_rescue_mission:
+        scene bg_black
+        with dissolve
+        show semifire at truecenter
+        with dissolve
+        gf "This is going to be your last chance. Choose your next word carefully."
+        $ rescue_used = True
+        $ in_rescue_mission = False
+        $ rage_gauge = 70
 
     scene bg_dark
     show gf angry1 at truecenter
@@ -663,7 +690,10 @@ label stage2_loop:
             scene bg_videocall
             show gf angry2 at truecenter
             with dissolve
-            gf "You were smiling! This is serious!"
+            if last_smile_count > 0:
+                gf "You were smiling! This is serious!"
+            else:
+                gf "Why did you hang up? We weren't done talking."
     else:
         # Any non-great, non-bad result still increases rage slightly.
         $ rage_gauge = min(100, rage_gauge + 10)
@@ -700,37 +730,51 @@ label stage2_success:
 label check_rescue:
     $ quick_menu = True
 
-    if not rescue_used:
-        $ rescue_used = True
-
-        scene bg_dark
-        with dissolve
-
-        menu:
-            "You've pushed things too far... But it's not over yet."
-            "Grab one last chance":
-                mc "(One more shot. I can't mess this up!)"
-                $ quick_menu = False
-                if stage == 1:
-                    jump stage1_phone_loop
-                else:
-                    $ run_tracker_start()
-                    call screen grab_one_last_chance_screen
-                    $ run_tracker_stop()
-                    $ stop_and_check_heart()
-                    if heart_rescue_success:
-                        $ rage_gauge = 30
-                        scene bg_videocall
-                        show gf angry1 at truecenter
-                        with dissolve
-                        jump stage2_loop
-                    else:
-                        $ rage_gauge = 100
-                        jump ending_gameover
-            "Give up...":
-                jump ending_gameover
-    else:
+    if rescue_used:
         jump ending_gameover
+
+    scene bg_black
+    with dissolve
+    show firegirl at truecenter
+    with dissolve
+
+    gf "Are you kidding me?"
+
+    scene bg_dark
+    with dissolve
+
+    menu:
+        "One more chance..."
+        "Grab one last chance":
+            mc "(One more shot. I can't mess this up!)"
+            $ quick_menu = False
+            $ in_rescue_mission = True
+            if stage == 1:
+                jump stage1_phone_loop
+            else:
+                $ run_tracker_start()
+                call screen grab_one_last_chance_screen
+                $ run_tracker_stop()
+                $ stop_and_check_heart()
+                if heart_rescue_success:
+                    scene bg_black
+                    with dissolve
+                    show semifire at truecenter
+                    with dissolve
+                    gf "This is going to be your last chance. Choose your next word carefully."
+                    $ rescue_used = True
+                    $ in_rescue_mission = False
+                    $ rage_gauge = 70
+                    scene bg_videocall
+                    with dissolve
+                    show gf angry1 at truecenter
+                    with dissolve
+                    jump stage2_loop
+                else:
+                    $ in_rescue_mission = False
+                    jump ending_gameover
+        "Give up...":
+            jump ending_gameover
 
 ## Endings #####################################################################
 
