@@ -451,7 +451,7 @@ label stage1_call:
     if _return == "back_to_phone":
         $ timer_seconds = max(timer_seconds, 60)
         jump stage1_phone_loop
-    elif voice_status == "ok":
+    elif _return == "skip" or voice_status == "ok":
         jump stage1_correct
     else:
         jump stage1_wrong

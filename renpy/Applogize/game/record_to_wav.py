@@ -13,7 +13,7 @@ def main():
     try:
         RATE = 16000
         CHUNK = 1024
-        SECONDS = 6
+        SECONDS = 15
         FORMAT = pyaudio.paInt16
         CHANNELS = 1
         out_path = "record_temp.wav"

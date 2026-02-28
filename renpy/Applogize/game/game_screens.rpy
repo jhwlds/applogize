@@ -350,6 +350,14 @@ screen call_recording_overlay():
                     text_xalign 0.5
                     action ContinueGuessAction()
 
+            # Skip recording
+            textbutton "⏭  Skip recording":
+                xalign 0.5
+                text_size 14
+                text_color "#666666"
+                text_hover_color "#aaaaaa"
+                action Return("skip")
+
             # Cancel / back
             textbutton "< Cancel call":
                 xalign 0.5
